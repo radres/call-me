@@ -1,0 +1,16 @@
+{
+  "name": "aiphone-claude-channel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild channel.mjs --bundle --platform=node --format=esm --outfile=../dist/channel.mjs",
+    "check": "node --check channel.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.11"
+  }
+}

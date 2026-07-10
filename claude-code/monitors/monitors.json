@@ -1,0 +1,8 @@
+[
+  {
+    "name": "aiphone-inbox",
+    "command": "node \"${CLAUDE_PLUGIN_ROOT}/monitors/inbound.mjs\"",
+    "description": "Messages and voice transcripts from the paired AI Phone",
+    "when": "always"
+  }
+]

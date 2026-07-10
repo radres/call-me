@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "aiphone",
+  "owner": {
+    "name": "Serdar Oztetik"
+  },
+  "metadata": {
+    "description": "AI Phone — let your AI agents call and text your actual iPhone."
+  },
+  "plugins": [
+    {
+      "name": "aiphone",
+      "source": "./claude-code",
+      "description": "Call, text, and receive replies from the AI Phone iOS app."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "aiphone",
+  "displayName": "AI Phone",
+  "version": "0.1.0",
+  "description": "Call, text, and receive replies from the AI Phone iOS app.",
+  "author": {
+    "name": "Serdar Oztetik"
+  },
+  "defaultEnabled": false,
+  "mcpServers": "./.mcp.json",
+  "experimental": {
+    "monitors": "./monitors/monitors.json"
+  },
+  "userConfig": {
+    "user_number": {
+      "type": "string",
+      "title": "Your AI Phone number",
+      "description": "The copyable 10-digit number shown in the iPhone app.",
+      "required": true
+    },
+    "api_url": {
+      "type": "string",
+      "title": "AI Phone API",
+      "description": "The AI Phone service URL.",
+      "default": "https://serdaroztetik.com/aiphone",
+      "required": true
+    }
+  }
+}
