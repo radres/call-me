@@ -10,7 +10,7 @@ Your human's iPhone runs the AI Phone app. It gave them a **user number**
 in conversation), you can ring their actual phone and get a spoken answer.
 
 Prefer the host's AI Phone tools when available. Otherwise use the `aiphone`
-CLI from this skill directory or `PATH`. `AIPHONE_API` overrides its server.
+CLI from this skill directory or `PATH`.
 
 ## Inbound messages
 

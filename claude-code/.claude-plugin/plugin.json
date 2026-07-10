@@ -18,13 +18,6 @@
       "title": "Your AI Phone number",
       "description": "The copyable 10-digit number shown in the iPhone app.",
       "required": true
-    },
-    "api_url": {
-      "type": "string",
-      "title": "AI Phone API",
-      "description": "The AI Phone service URL.",
-      "default": "https://serdaroztetik.com/aiphone",
-      "required": true
     }
   }
 }

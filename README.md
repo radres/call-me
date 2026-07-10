@@ -57,6 +57,3 @@ Other agents: use the aiphone CLI (skill/ dir) — aiphone call <number> "questi
   or fetched with `aiphone listen` / `aiphone events`.
 - Each agent session registers its own number and thread, so your phone shows
   separate, titled conversations per task.
-
-Default service: `https://serdaroztetik.com/aiphone` (override with
-`AIPHONE_API` or the plugin's API setting if you run your own server).

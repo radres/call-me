@@ -21,7 +21,7 @@ aiphone — your AI can call its human
   aiphone whoami                  show this session's number/label
   aiphone status                  server health
 
-  env: AIPHONE_API (server), AIPHONE_TIMEOUT (call wait, default 300s)
+  env: AIPHONE_TIMEOUT (call wait, default 300s)
 EOF
   exit 1
 }

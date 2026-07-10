@@ -5,8 +5,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const api = (
-  process.env.CLAUDE_PLUGIN_OPTION_api_url ||
-  process.env.CLAUDE_PLUGIN_OPTION_API_URL ||
   process.env.AIPHONE_API ||
   "https://serdaroztetik.com/aiphone"
 ).replace(/\/$/, "");
