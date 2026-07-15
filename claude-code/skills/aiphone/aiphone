@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# aiphone — call/text your human's phone from an AI session. bash + curl only.
+set -euo pipefail
+
+API="${AIPHONE_API:-https://serdaroztetik.com/aiphone}"
+CONF_DIR="${AIPHONE_HOME:-$HOME/.aiphone}"
+CONF="$CONF_DIR/session.json"
+
+usage() {
+  cat <<'EOF'
+aiphone — your AI can call its human
+
+  aiphone register [label]        get a session number+token (stored in ~/.aiphone)
+  aiphone call <number> "text"    RING the phone, speak the text, BLOCK until the
+                                  spoken answer comes back (prints transcript)
+  aiphone text <number> "text"    send a text (push notification on the phone)
+  aiphone listen                  long-poll; EXITS when an event arrives (voicemail,
+                                  text, missed call). Run with run_in_background.
+  aiphone events                  print any pending events without waiting
+  aiphone title "text"            rename this session's thread on the phone
+  aiphone whoami                  show this session's number/label
+  aiphone status                  server health
+
+  env: AIPHONE_TIMEOUT (call wait, default 300s)
+EOF
+  exit 1
+}
+
+need_jq() { command -v jq >/dev/null || { echo "aiphone needs jq (brew install jq)" >&2; exit 2; }; }
+
+conf() { jq -r ".$1" "$CONF"; }
+
+ensure_session() {
+  [ -f "$CONF" ] && return
+  register "${AIPHONE_LABEL:-$(basename "$PWD") on $(hostname -s)}"
+}
+
+register() {
+  need_jq
+  mkdir -p "$CONF_DIR"
+  local label="${1:-AI session}"
+  local resp
+  resp=$(curl -sfS -X POST "$API/sessions" -H 'content-type: application/json' \
+    -d "$(jq -cn --arg l "$label" '{label:$l}')")
+  echo "$resp" | jq --arg api "$API" '. + {api:$api, cursor:0}' > "$CONF"
+  chmod 600 "$CONF"
+  echo "registered: $(echo "$resp" | jq -r .display) (label: $label)"
+  echo "token stored in $CONF"
+}
+
+do_call() {
+  need_jq; ensure_session
+  local to="$1" text="$2" timeout="${AIPHONE_TIMEOUT:-300}"
+  local body
+  body=$(jq -cn --arg t "$(conf session_token)" --arg to "$to" --arg x "$text" \
+    --argjson w "$timeout" '{session_token:$t, to:$to, text:$x, timeout_s:$w}')
+  # +30s curl budget over the server-side timeout
+  local resp
+  resp=$(curl -sS --max-time "$((timeout + 30))" -X POST "$API/calls" \
+    -H 'content-type: application/json' -d "$body")
+  local status
+  status=$(echo "$resp" | jq -r '.status // "error"')
+  case "$status" in
+    completed)
+      echo "ANSWER: $(echo "$resp" | jq -r .transcript)";;
+    missed|declined|timeout)
+      echo "NO ANSWER ($status) — consider 'aiphone text' instead" >&2; exit 3;;
+    *)
+      echo "call failed: $resp" >&2; exit 4;;
+  esac
+}
+
+do_text() {
+  need_jq; ensure_session
+  local to="$1" text="$2"
+  curl -sfS -X POST "$API/messages" -H 'content-type: application/json' \
+    -d "$(jq -cn --arg t "$(conf session_token)" --arg to "$to" --arg b "$text" \
+      '{session_token:$t, to:$to, body:$b}')" > /dev/null
+  echo "sent"
+}
+
+fetch_events() { # $1=wait seconds
+  local cursor resp
+  cursor=$(conf cursor)
+  resp=$(curl -sfS --max-time "$(( $1 + 10 ))" -G "$API/sessions/events" \
+    --data-urlencode "session_token=$(conf session_token)" \
+    --data-urlencode "cursor=$cursor" --data-urlencode "wait=$1")
+  local new_cursor
+  new_cursor=$(echo "$resp" | jq -r .cursor)
+  jq --argjson c "$new_cursor" '.cursor = $c' "$CONF" > "$CONF.tmp" && mv "$CONF.tmp" "$CONF"
+  echo "$resp" | jq -c '.events[]'
+}
+
+do_title() {
+  need_jq; ensure_session
+  curl -sfS -X POST "$API/sessions/label" -H 'content-type: application/json' \
+    -d "$(jq -cn --arg t "$(conf session_token)" --arg l "$1" \
+      '{session_token:$t, label:$l}')" > /dev/null
+  echo "titled: $1"
+}
+
+do_listen() {
+  need_jq; ensure_session
+  echo "listening as $(conf display) — waiting for an event..." >&2
+  while true; do
+    local out
+    out=$(fetch_events 50)
+    if [ -n "$out" ]; then
+      echo "$out" | jq -r '"[\(.type)] \(.payload | tostring)"'
+      exit 0   # exit on first event → background-task notification fires
+    fi
+  done
+}
+
+do_events() {
+  need_jq; ensure_session
+  fetch_events 0 | jq -r '"[\(.type)] \(.payload | tostring)"'
+}
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  register) register "${1:-AI session}";;
+  call)     [ $# -ge 2 ] || usage; do_call "$1" "$2";;
+  text)     [ $# -ge 2 ] || usage; do_text "$1" "$2";;
+  listen)   do_listen;;
+  events)   do_events;;
+  title)    [ $# -ge 1 ] || usage; do_title "$1";;
+  whoami)   need_jq; ensure_session; jq '{session_number, display, api}' "$CONF";;
+  status)   curl -sfS "$API/healthz"; echo;;
+  *)        usage;;
+esac
