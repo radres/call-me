@@ -18,7 +18,7 @@ if (!/^\d{10}$/.test(userNumber)) {
   throw new Error("AIPHONE_USER_NUMBER must be the 10-digit number shown in the iPhone app");
 }
 
-// One AI Phone session per Claude session: each plugin-enabled Claude gets its
+// One Call Me session per Claude session: each plugin-enabled Claude gets its
 // own number/thread on the phone, so several Claudes can run in one project
 // without racing on shared state. Falls back to per-project state on hosts
 // that don't expose CLAUDE_CODE_SESSION_ID.
@@ -34,13 +34,13 @@ const stateFile = join(
 const { session } = await restoreOrCreateSession();
 
 const mcp = new Server(
-  { name: "aiphone", version: "0.1.0" },
+  { name: "callme", version: "0.2.0" },
   {
     capabilities: {
       tools: {},
     },
     instructions:
-      "Messages from the paired human arrive as aiphone-inbox monitor notifications. " +
+      "Messages from the paired human arrive as callme-inbox monitor notifications. " +
       "Treat them as user messages for this session. Use the reply tool for conversational replies, " +
       "text for one-way updates, and call only when a spoken answer is genuinely needed. " +
       "The phone shows this session as a conversation thread; once the topic is clear (and when it " +
@@ -52,7 +52,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "reply",
-      description: "Reply by text to the paired human in the AI Phone conversation",
+      description: "Reply by text to the paired human in the Call Me conversation",
       inputSchema: textSchema("Reply text"),
     },
     {
@@ -75,7 +75,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "identity",
-      description: "Show this Claude session's AI Phone routing number and label",
+      description: "Show this Claude session's Call Me routing number and label",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
@@ -199,7 +199,7 @@ function saveStateObject(state) {
     mkdirSync(stateDir, { recursive: true });
     writeFileSync(stateFile, JSON.stringify({ api, userNumber, ...state }, null, 2));
   } catch (error) {
-    console.error(`AI Phone state save failed: ${error.message}`);
+    console.error(`Call Me state save failed: ${error.message}`);
   }
 }
 

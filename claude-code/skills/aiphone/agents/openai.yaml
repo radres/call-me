@@ -1,4 +1,0 @@
-interface:
-  display_name: "AI Phone"
-  short_description: "Call and message your human from an AI task"
-  default_prompt: "Use $aiphone to contact me on my iPhone and handle my reply."

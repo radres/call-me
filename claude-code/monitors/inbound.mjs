@@ -33,7 +33,7 @@ const userNumber = normalizeNumber(
 );
 
 if (!/^\d{10}$/.test(userNumber)) {
-  throw new Error("AI Phone monitor needs the configured 10-digit user number");
+  throw new Error("Call Me monitor needs the configured 10-digit user number");
 }
 
 async function savedUserNumber() {
@@ -73,7 +73,7 @@ while (!stopping) {
     }
     saveCursor();
   } catch (error) {
-    console.error(`AI Phone monitor poll failed: ${error.message}`);
+    console.error(`Call Me monitor poll failed: ${error.message}`);
     await delay(2_000);
     session = await waitForSharedSession();
   }
@@ -135,7 +135,7 @@ function saveCursor() {
     mkdirSync(stateDir, { recursive: true });
     writeFileSync(cursorFile, JSON.stringify({ sessionToken: session.session_token, cursor }));
   } catch (error) {
-    console.error(`AI Phone monitor state save failed: ${error.message}`);
+    console.error(`Call Me monitor state save failed: ${error.message}`);
   }
 }
 
@@ -152,15 +152,15 @@ function isFromPairedUser(event) {
 function notificationText(event) {
   switch (event.type) {
     case "message":
-      return `AI Phone message from your paired human: ${oneLine(event.payload.body)}. Treat it as new user input and reply with the AI Phone reply tool.`;
+      return `Call Me message from your paired human: ${oneLine(event.payload.body)}. Treat it as new user input and reply with the Call Me reply tool.`;
     case "voicemail":
-      return `AI Phone voice-message transcript from your paired human: ${oneLine(event.payload.transcript)}. Treat it as new user input and reply with the AI Phone reply tool.`;
+      return `Call Me voice-message transcript from your paired human: ${oneLine(event.payload.transcript)}. Treat it as new user input and reply with the Call Me reply tool.`;
     case "missed_call":
-      return "AI Phone call was not answered. Continue with best judgment or send a text with the AI Phone reply tool.";
+      return "Call Me call was not answered. Continue with best judgment or send a text with the Call Me reply tool.";
     case "declined_call":
-      return "Your paired human declined the AI Phone call. Do not call again; use the AI Phone reply tool if a response is needed.";
+      return "Your paired human declined the Call Me call. Do not call again; use the Call Me reply tool if a response is needed.";
     default:
-      return `AI Phone event: ${oneLine(JSON.stringify(event.payload))}`;
+      return `Call Me event: ${oneLine(JSON.stringify(event.payload))}`;
   }
 }
 

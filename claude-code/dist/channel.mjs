@@ -15469,19 +15469,19 @@ var stateFile = join(
 );
 var { session } = await restoreOrCreateSession();
 var mcp = new Server(
-  { name: "aiphone", version: "0.1.0" },
+  { name: "callme", version: "0.2.0" },
   {
     capabilities: {
       tools: {}
     },
-    instructions: "Messages from the paired human arrive as aiphone-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart."
+    instructions: "Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart."
   }
 );
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "reply",
-      description: "Reply by text to the paired human in the AI Phone conversation",
+      description: "Reply by text to the paired human in the Call Me conversation",
       inputSchema: textSchema("Reply text")
     },
     {
@@ -15504,7 +15504,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "identity",
-      description: "Show this Claude session's AI Phone routing number and label",
+      description: "Show this Claude session's Call Me routing number and label",
       inputSchema: { type: "object", properties: {}, additionalProperties: false }
     },
     {
@@ -15614,7 +15614,7 @@ function saveStateObject(state) {
     mkdirSync(stateDir, { recursive: true });
     writeFileSync(stateFile, JSON.stringify({ api, userNumber, ...state }, null, 2));
   } catch (error2) {
-    console.error(`AI Phone state save failed: ${error2.message}`);
+    console.error(`Call Me state save failed: ${error2.message}`);
   }
 }
 function normalizeNumber(value) {

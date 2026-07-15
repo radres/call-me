@@ -1,8 +1,8 @@
 [
   {
-    "name": "aiphone-inbox",
+    "name": "callme-inbox",
     "command": "node \"${CLAUDE_PLUGIN_ROOT}/monitors/inbound.mjs\"",
-    "description": "Messages and voice transcripts from the paired AI Phone",
-    "when": "on-skill-invoke:aiphone"
+    "description": "Messages and voice transcripts from the paired Call Me phone",
+    "when": "on-skill-invoke:call-me"
   }
 ]

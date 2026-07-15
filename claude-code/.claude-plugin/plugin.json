@@ -1,9 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "aiphone",
-  "displayName": "AI Phone",
-  "version": "0.1.0",
-  "description": "Call, text, and receive replies from the AI Phone iOS app.",
+  "name": "call-me",
+  "displayName": "Call Me",
+  "version": "0.2.0",
+  "description": "Call, text, and receive replies from the Call Me iOS app.",
   "author": {
     "name": "Serdar Oztetik"
   },
@@ -15,7 +15,7 @@
   "userConfig": {
     "user_number": {
       "type": "string",
-      "title": "Your AI Phone number",
+      "title": "Your Call Me number",
       "description": "The copyable 10-digit number shown in the iPhone app.",
       "required": true
     }

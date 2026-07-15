@@ -1,6 +1,6 @@
 {
-  "name": "aiphone-claude-channel",
-  "version": "0.1.0",
+  "name": "callme-claude-channel",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# aiphone — call/text your human's phone from an AI session. bash + curl only.
+# callme — call/text your human's phone from an AI session. bash + curl only.
 set -euo pipefail
 
 API="${AIPHONE_API:-https://serdaroztetik.com/aiphone}"
@@ -8,25 +8,25 @@ CONF="$CONF_DIR/session.json"
 
 usage() {
   cat <<'EOF'
-aiphone — your AI can call its human
+callme — your AI can call its human
 
-  aiphone register [label]        get a session number+token (stored in ~/.aiphone)
-  aiphone call <number> "text"    RING the phone, speak the text, BLOCK until the
+  callme register [label]        get a session number+token (stored in ~/.aiphone)
+  callme call <number> "text"    RING the phone, speak the text, BLOCK until the
                                   spoken answer comes back (prints transcript)
-  aiphone text <number> "text"    send a text (push notification on the phone)
-  aiphone listen                  long-poll; EXITS when an event arrives (voicemail,
+  callme text <number> "text"    send a text (push notification on the phone)
+  callme listen                  long-poll; EXITS when an event arrives (voicemail,
                                   text, missed call). Run with run_in_background.
-  aiphone events                  print any pending events without waiting
-  aiphone title "text"            rename this session's thread on the phone
-  aiphone whoami                  show this session's number/label
-  aiphone status                  server health
+  callme events                  print any pending events without waiting
+  callme title "text"            rename this session's thread on the phone
+  callme whoami                  show this session's number/label
+  callme status                  server health
 
   env: AIPHONE_TIMEOUT (call wait, default 300s)
 EOF
   exit 1
 }
 
-need_jq() { command -v jq >/dev/null || { echo "aiphone needs jq (brew install jq)" >&2; exit 2; }; }
+need_jq() { command -v jq >/dev/null || { echo "callme needs jq (brew install jq)" >&2; exit 2; }; }
 
 conf() { jq -r ".$1" "$CONF"; }
 
@@ -64,7 +64,7 @@ do_call() {
     completed)
       echo "ANSWER: $(echo "$resp" | jq -r .transcript)";;
     missed|declined|timeout)
-      echo "NO ANSWER ($status) — consider 'aiphone text' instead" >&2; exit 3;;
+      echo "NO ANSWER ($status) — consider 'callme text' instead" >&2; exit 3;;
     *)
       echo "call failed: $resp" >&2; exit 4;;
   esac
