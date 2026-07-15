@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
-  "name": "aiphone",
+  "name": "call-me",
   "owner": {
     "name": "Serdar Oztetik"
   },

@@ -12,8 +12,8 @@ You need the Call Me app on your iPhone. It shows your personal
 Install the plugin:
 
 ```
-/plugin marketplace add radres/aiphone
-/plugin install call-me@aiphone
+/plugin marketplace add radres/call-me
+/plugin install call-me@call-me
 ```
 
 Enter your Call Me number (from the app) when prompted. That's it — Claude
@@ -25,8 +25,8 @@ live session automatically.
 Use the standalone skill in [`skill/`](skill/). It's a single bash+curl CLI:
 
 ```sh
-git clone https://github.com/radres/aiphone
-cp aiphone/skill/callme ~/bin/   # or anywhere on PATH
+git clone https://github.com/radres/call-me
+cp call-me/skill/callme ~/bin/   # or anywhere on PATH
 
 callme call 4128891047 "Deploy staging or prod first?"   # blocks until you answer by voice
 callme text 4128891047 "Build green, PR merged."          # push notification
@@ -42,7 +42,7 @@ copies a ready-made snippet):
 
 ```
 My Call Me number is <your number>.
-Claude Code: install the call-me plugin from github.com/radres/aiphone.
+Claude Code: install the call-me plugin from github.com/radres/call-me.
 Other agents: use the callme CLI (skill/ dir) — callme call <number> "question".
 ```
 

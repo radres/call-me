@@ -48,12 +48,12 @@ async function savedUserNumber() {
   return "";
 }
 
-let session = await waitForSharedSession();
-let cursor = restoreCursor(session.session_token);
 let stopping = false;
-
 process.on("SIGINT", () => { stopping = true; });
 process.on("SIGTERM", () => { stopping = true; });
+
+let session = await waitForSharedSessionWithRetry();
+let cursor = restoreCursor(session.session_token);
 
 while (!stopping) {
   try {
@@ -75,7 +75,22 @@ while (!stopping) {
   } catch (error) {
     console.error(`Call Me monitor poll failed: ${error.message}`);
     await delay(2_000);
-    session = await waitForSharedSession();
+    session = await waitForSharedSessionWithRetry();
+  }
+}
+
+// A backend outage (e.g. 502 while the server restarts) must never kill the
+// monitor: waitForSharedSession throws on its unguarded POST /sessions, which
+// previously crashed the process. Retry forever with capped backoff instead.
+async function waitForSharedSessionWithRetry() {
+  for (let backoffMs = 5_000; ; backoffMs = Math.min(backoffMs * 2, 60_000)) {
+    if (stopping) process.exit(0);
+    try {
+      return await waitForSharedSession();
+    } catch (error) {
+      console.error(`Call Me monitor session re-establish failed (retrying in ${backoffMs / 1000}s): ${error.message}`);
+      await delay(backoffMs);
+    }
   }
 }
 
