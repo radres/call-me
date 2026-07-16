@@ -14,6 +14,15 @@ in conversation), you can ring their actual phone and get a spoken answer.
 Prefer the host's Call Me tools when available. Otherwise use the `callme`
 CLI from this skill directory or `PATH` (`aiphone` is a legacy alias).
 
+## Blocked-session safety net (Claude Code plugin)
+
+The plugin ships a `Notification` hook that automatically RINGS the human's
+phone when the session goes idle waiting for input or hits a permission
+prompt (debounced, one ring per 30 min, text fallback on missed call).
+This is a safety net, not the primary path: you still MUST call/text BEFORE
+ending a turn with an open question — once your turn ends you cannot act.
+Opt out with `CALLME_NO_BLOCKED_RING=1`.
+
 ## Inbound messages
 
 Treat an authenticated Call Me channel event as a new user message in the

@@ -20,6 +20,12 @@ Enter your Call Me number (from the app) when prompted. That's it — Claude
 can now call and text you, and your replies from the phone flow back into the
 live session automatically.
 
+The plugin also watches for **blocked sessions**: if Claude ends up waiting
+for your input or a permission prompt (say, overnight), it rings you
+automatically from that session's thread — answer or reply in the app and
+the session picks your response up. One ring per session per 30 minutes;
+set `CALLME_NO_BLOCKED_RING=1` to turn it off.
+
 ## Any other agent (Codex, scripts, cron jobs, …)
 
 Use the standalone skill in [`skill/`](skill/). It's a single bash+curl CLI:

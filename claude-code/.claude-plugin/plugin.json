@@ -2,8 +2,9 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "call-me",
   "displayName": "Call Me",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Call, text, and receive replies from the Call Me iOS app.",
+  "hooks": "./hooks/hooks.json",
   "author": {
     "name": "Serdar Oztetik"
   },
