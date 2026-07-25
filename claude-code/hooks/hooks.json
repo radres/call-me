@@ -1,4 +1,0 @@
-{
-  "description": "Ring the paired phone when a Claude Code session is blocked waiting for input or a permission prompt.",
-  "hooks": {}
-}

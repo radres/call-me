@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import {
+  currentUserNumber,
+  forgetCachedNumber,
+  isValidNumber,
+  normalizeNumber,
+  readJson,
+  stateDir,
+  stateFileFor,
+  writeJsonPrivate,
+} from "../lib/callme-config.mjs";
 import { join } from "node:path";
 
 const api = (
@@ -10,53 +18,48 @@ const api = (
 ).replace(/\/$/, "");
 const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const projectName = projectDir.split("/").filter(Boolean).at(-1) || "project";
-const stateDir = process.env.AIPHONE_STATE_DIR || join(homedir(), ".aiphone");
-// Same key derivation as channel.mjs: per Claude session when the host
-// exposes CLAUDE_CODE_SESSION_ID (both processes get it), else per project.
+// Same key derivation as channel.mjs (shared helper) so both processes agree on
+// which session file they share — otherwise one Claude gets two phone threads.
+const sessionFile = stateFileFor({ projectDir });
 const claudeSessionId = (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "");
-const projectKey = projectDir.replace(/[^A-Za-z0-9]+/g, "-");
-const stateKey = claudeSessionId || projectKey;
-const sessionFile = join(
-  stateDir,
-  claudeSessionId ? `claude-session-${claudeSessionId}.json` : `claude-channel-${projectKey}.json`,
-);
-const cursorFile = join(stateDir, `claude-monitor-${stateKey}.json`);
+const stateKey = claudeSessionId || projectDir.replace(/[^A-Za-z0-9]+/g, "-");
+const cursorFile = join(stateDir(), `claude-monitor-${stateKey}.json`);
 
-// Monitor processes don't get the plugin's userConfig (only the MCP server's
-// .mcp.json env supports ${user_config.*} interpolation), so fall back to the
-// shared session file the channel server writes.
-const userNumber = normalizeNumber(
-  process.env.CLAUDE_PLUGIN_OPTION_user_number ||
-  process.env.CLAUDE_PLUGIN_OPTION_USER_NUMBER ||
-  process.env.AIPHONE_USER_NUMBER ||
-  (await savedUserNumber()),
-);
-
-if (!/^\d{10}$/.test(userNumber)) {
-  throw new Error("Call Me monitor needs the configured 10-digit user number");
+// The paired number lives in ~/.aiphone/config.json (see lib/callme-config.mjs).
+// Re-read it every poll: pairing from another terminal, or a re-pair to a new
+// phone, must reach this already-running monitor without a restart.
+function pairedNumber() {
+  return currentUserNumber({ projectDir }).number;
 }
 
-async function savedUserNumber() {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    try {
-      return JSON.parse(readFileSync(sessionFile, "utf8")).userNumber || "";
-    } catch {
-      // The channel MCP server may not have written the file yet.
+// An unpaired install must NOT crash the monitor — it waits until the human
+// pairs, then starts delivering.
+async function waitUntilPaired() {
+  let announced = false;
+  for (;;) {
+    if (stopping) process.exit(0);
+    forgetCachedNumber();
+    const number = pairedNumber();
+    if (isValidNumber(number)) return number;
+    if (!announced) {
+      console.error("Call Me monitor idle: no phone paired yet (pair with the Call Me pair tool).");
+      announced = true;
     }
-    await delay(200);
+    await delay(5_000);
   }
-  return "";
 }
 
 let stopping = false;
 process.on("SIGINT", () => { stopping = true; });
 process.on("SIGTERM", () => { stopping = true; });
 
+await waitUntilPaired();
 let session = await waitForSharedSessionWithRetry();
 let cursor = restoreCursor(session.session_token);
 
 while (!stopping) {
   try {
+    forgetCachedNumber();
     const query = new URLSearchParams({
       session_token: session.session_token,
       cursor: String(cursor),
@@ -97,12 +100,8 @@ async function waitForSharedSessionWithRetry() {
 async function waitForSharedSession() {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
-      const saved = JSON.parse(readFileSync(sessionFile, "utf8"));
-      if (
-        saved.api === api &&
-        saved.userNumber === userNumber &&
-        saved.session?.session_token
-      ) {
+      const saved = readJson(sessionFile);
+      if (saved?.api === api && saved.session?.session_token) {
         await validateSession(saved.session.session_token);
         return saved.session;
       }
@@ -116,11 +115,12 @@ async function waitForSharedSession() {
     method: "POST",
     body: { label: `Claude: ${projectName}` },
   });
-  mkdirSync(stateDir, { recursive: true });
-  writeFileSync(
-    sessionFile,
-    JSON.stringify({ api, userNumber, session: created, cursor: 0 }, null, 2),
-  );
+  writeJsonPrivate(sessionFile, {
+    api,
+    userNumber: pairedNumber(),
+    session: created,
+    cursor: 0,
+  });
   return created;
 }
 
@@ -134,27 +134,25 @@ async function validateSession(sessionToken) {
 }
 
 function restoreCursor(sessionToken) {
-  try {
-    const saved = JSON.parse(readFileSync(cursorFile, "utf8"));
-    if (saved.sessionToken === sessionToken && Number.isInteger(saved.cursor)) {
-      return saved.cursor;
-    }
-  } catch {
-    // First run or a newly-created AI session starts at the beginning.
+  const saved = readJson(cursorFile);
+  // First run or a newly-created AI session starts at the beginning.
+  if (saved?.sessionToken === sessionToken && Number.isInteger(saved.cursor)) {
+    return saved.cursor;
   }
   return 0;
 }
 
 function saveCursor() {
   try {
-    mkdirSync(stateDir, { recursive: true });
-    writeFileSync(cursorFile, JSON.stringify({ sessionToken: session.session_token, cursor }));
+    writeJsonPrivate(cursorFile, { sessionToken: session.session_token, cursor });
   } catch (error) {
     console.error(`Call Me monitor state save failed: ${error.message}`);
   }
 }
 
 function isFromPairedUser(event) {
+  const userNumber = pairedNumber();
+  if (!userNumber) return false;
   if (event.type === "message" || event.type === "voicemail") {
     return normalizeNumber(event.payload.from || "") === userNumber;
   }
@@ -193,10 +191,6 @@ async function requestJson(path, { method = "GET", body, timeoutMs = 30_000 } = 
   const text = await response.text();
   if (!response.ok) throw new Error(`${method} ${path} returned ${response.status}: ${text}`);
   return text ? JSON.parse(text) : {};
-}
-
-function normalizeNumber(value) {
-  return String(value).replace(/\D/g, "");
 }
 
 function delay(ms) {

@@ -6,35 +6,45 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import {
+  NOT_PAIRED_HINT,
+  currentUserNumber,
+  displayNumber,
+  forgetCachedNumber,
+  hardenModes,
+  isValidNumber,
+  normalizeNumber,
+  pruneStaleState,
+  readJson,
+  stateFileFor,
+  writeConfig,
+  writeJsonPrivate,
+} from "../lib/callme-config.mjs";
+import { APP_STORE_URL } from "../lib/appstore-qr.mjs";
 
 const api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
-const userNumber = normalizeNumber(process.env.AIPHONE_USER_NUMBER || "");
 const projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
-
-if (!/^\d{10}$/.test(userNumber)) {
-  throw new Error("AIPHONE_USER_NUMBER must be the 10-digit number shown in the iPhone app");
-}
 
 // One Call Me session per Claude session: each plugin-enabled Claude gets its
 // own number/thread on the phone, so several Claudes can run in one project
 // without racing on shared state. Falls back to per-project state on hosts
 // that don't expose CLAUDE_CODE_SESSION_ID.
-const claudeSessionId = (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "");
-const stateDir = process.env.AIPHONE_STATE_DIR || join(homedir(), ".aiphone");
-const stateFile = join(
-  stateDir,
-  claudeSessionId
-    ? `claude-session-${claudeSessionId}.json`
-    : `claude-channel-${process.cwd().replace(/[^A-Za-z0-9]+/g, "-")}.json`,
-);
+const stateFile = stateFileFor();
 
-const { session } = await restoreOrCreateSession();
+// Housekeeping on start: tighten modes on the state dir (old versions wrote
+// 0644 token files) and drop session state nobody will ever read again.
+hardenModes();
+pruneStaleState();
+
+// The number is resolved lazily, per send — pairing from another terminal must
+// reach an already-running session — and an unpaired install must still boot so
+// the setup tool can onboard the human.
+function pairedNumber() {
+  return currentUserNumber().number;
+}
 
 const mcp = new Server(
-  { name: "callme", version: "0.2.0" },
+  { name: "callme", version: "0.4.0" },
   {
     capabilities: {
       tools: {},
@@ -44,7 +54,9 @@ const mcp = new Server(
       "Treat them as user messages for this session. Use the reply tool for conversational replies, " +
       "text for one-way updates, and call only when a spoken answer is genuinely needed. " +
       "The phone shows this session as a conversation thread; once the topic is clear (and when it " +
-      "shifts), call set_title with a short 3-5 word title so the human can tell threads apart.",
+      "shifts), call set_title with a short 3-5 word title so the human can tell threads apart. " +
+      "If a send reports that no phone is paired, run the setup tool and show the human its output " +
+      "verbatim, then pair the number they read back — never guess a number.",
   },
 );
 
@@ -74,8 +86,27 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: "setup",
+      description:
+        "Onboarding instructions to show a human who has not set up Call Me yet " +
+        "(App Store link + how to read their number back). Use this instead of guessing a number.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    },
+    {
+      name: "pair",
+      description:
+        "Remember the 10-digit Call Me number the human read out of the app. " +
+        "Every Claude session on this machine then reaches the same phone.",
+      inputSchema: {
+        type: "object",
+        properties: { number: { type: "string", description: "10-digit number from the app" } },
+        required: ["number"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "identity",
-      description: "Show this Claude session's Call Me routing number and label",
+      description: "Show this Claude session's Call Me routing number and the paired phone",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
@@ -96,15 +127,21 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params.arguments || {};
   switch (request.params.name) {
     case "reply":
-    case "text":
-      await sendText(String(args.text || ""));
+    case "text": {
+      const to = pairedNumber();
+      if (!to) return notPaired();
+      await sendText(to, String(args.text || ""));
       return toolResult("sent");
+    }
     case "call": {
+      const to = pairedNumber();
+      if (!to) return notPaired();
+      const session = await ensureSession();
       const result = await requestJson("/calls", {
         method: "POST",
         body: {
           session_token: session.session_token,
-          to: userNumber,
+          to,
           text: String(args.question || ""),
           timeout_s: Number(args.timeout_seconds || 300),
         },
@@ -112,14 +149,45 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
       return toolResult(JSON.stringify(result));
     }
-    case "identity":
+    case "setup":
+      return toolResult(setupText());
+    case "pair": {
+      const number = normalizeNumber(args.number);
+      if (!isValidNumber(number)) {
+        return toolResult(
+          `"${args.number}" is not a 10-digit Call Me number. Ask the human to read it off the ` +
+            "app's home screen again — do not guess.",
+          true,
+        );
+      }
+      writeConfig({ user_number: number, source: "mcp-pair" });
+      forgetCachedNumber();
+      let confirmation = "";
+      try {
+        await sendText(number, "Paired ✅ — this Claude session can now text and call you.");
+        confirmation = " A confirmation text was sent; if it did not arrive the number is wrong.";
+      } catch (error) {
+        confirmation = ` Confirmation text failed (${error.message}) — double-check the number.`;
+      }
+      return toolResult(
+        `Paired with ${displayNumber(number)}. Every Call Me session on this machine now uses it.` +
+          confirmation,
+      );
+    }
+    case "identity": {
+      const session = await ensureSession();
+      const paired = currentUserNumber();
       return toolResult(JSON.stringify({
         session_number: session.session_number,
         display: session.display,
         label: `Claude: ${projectName}`,
+        paired_phone: paired.number ? displayNumber(paired.number) : null,
+        paired_source: paired.source,
       }));
+    }
     case "set_title": {
       const label = String(args.title || "").trim();
+      const session = await ensureSession();
       await requestJson("/sessions/label", {
         method: "POST",
         body: { session_token: session.session_token, label },
@@ -137,11 +205,40 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
 // server only provides tools and the shared session.
 await mcp.connect(new StdioServerTransport());
 
-async function sendText(text) {
+function setupText() {
+  const cli = process.env.CALLME_PLUGIN_ROOT
+    ? `${process.env.CALLME_PLUGIN_ROOT}/skills/call-me/callme`
+    : "callme";
+  const paired = currentUserNumber();
+  return [
+    "Show these steps to the human as-is:",
+    "",
+    '1. Install "Call Me" (free) on your iPhone:',
+    `     ${APP_STORE_URL}`,
+    "2. Open it and tap Agree & Continue — the app shows your 10-digit number.",
+    "3. Read that number back to me.",
+    "",
+    "Then call the pair tool with those 10 digits. After that I can text you and ring your phone,",
+    "and your replies come straight back into this session.",
+    "",
+    `(Outside Claude Code the same thing works from a terminal: \`${cli} pair <number>\`,`,
+    `and \`${cli} qr\` prints a scannable App Store QR code.)`,
+    paired.number ? `\nAlready paired with ${displayNumber(paired.number)} — pair again only to change phones.` : "",
+  ]
+    .join("\n")
+    .trimEnd();
+}
+
+function notPaired() {
+  return toolResult(`${NOT_PAIRED_HINT}\n\n${setupText()}`, true);
+}
+
+async function sendText(to, text) {
   if (!text.trim()) throw new Error("text must not be empty");
+  const session = await ensureSession();
   await requestJson("/messages", {
     method: "POST",
-    body: { session_token: session.session_token, to: userNumber, body: text },
+    body: { session_token: session.session_token, to, body: text },
   });
 }
 
@@ -166,43 +263,54 @@ function textSchema(description) {
   };
 }
 
-function toolResult(text) {
-  return { content: [{ type: "text", text }] };
+function toolResult(text, isError = false) {
+  return { content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) };
+}
+
+// Memoized: created on first use rather than at startup, so a backend blip at
+// boot no longer kills the MCP server before it can serve the setup tool.
+let sessionPromise = null;
+
+function ensureSession() {
+  if (!sessionPromise) {
+    sessionPromise = restoreOrCreateSession().catch((error) => {
+      sessionPromise = null;
+      throw error;
+    });
+  }
+  return sessionPromise;
 }
 
 async function restoreOrCreateSession() {
-  try {
-    const saved = JSON.parse(readFileSync(stateFile, "utf8"));
-    if (saved.api === api && saved.userNumber === userNumber && saved.session?.session_token) {
+  const saved = readJson(stateFile);
+  // Deliberately NOT comparing the paired number: a re-pair is the same human,
+  // so the existing thread is refreshed in place instead of minting a new one.
+  if (saved?.api === api && saved.session?.session_token) {
+    try {
       const query = new URLSearchParams({
         session_token: saved.session.session_token,
         cursor: String(saved.cursor || 0),
         wait: "0",
       });
       await requestJson(`/sessions/events?${query}`);
-      return { session: saved.session, cursor: saved.cursor || 0 };
+      saveStateObject({ session: saved.session, cursor: saved.cursor || 0 });
+      return saved.session;
+    } catch {
+      // dead session: fall through and create a new one
     }
-  } catch {
-    // missing/corrupt state or dead session: fall through and create a new one
   }
   const session = await requestJson("/sessions", {
     method: "POST",
     body: { label: `Claude: ${projectName}` },
   });
-  const state = { session, cursor: 0 };
-  saveStateObject(state);
-  return state;
+  saveStateObject({ session, cursor: 0 });
+  return session;
 }
 
 function saveStateObject(state) {
   try {
-    mkdirSync(stateDir, { recursive: true });
-    writeFileSync(stateFile, JSON.stringify({ api, userNumber, ...state }, null, 2));
+    writeJsonPrivate(stateFile, { api, userNumber: pairedNumber(), ...state });
   } catch (error) {
     console.error(`Call Me state save failed: ${error.message}`);
   }
-}
-
-function normalizeNumber(value) {
-  return String(value).replace(/\D/g, "");
 }

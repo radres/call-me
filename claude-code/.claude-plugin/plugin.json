@@ -2,9 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "call-me",
   "displayName": "Call Me",
-  "version": "0.3.0",
-  "description": "Call, text, and receive replies from the Call Me iOS app.",
-  "hooks": "./hooks/hooks.json",
+  "version": "0.4.0",
+  "description": "Call, text, and receive replies from the Call Me iOS app. Pair once (any session) and every Claude on this machine reaches the same phone.",
   "author": {
     "name": "Serdar Oztetik"
   },
@@ -16,9 +15,9 @@
   "userConfig": {
     "user_number": {
       "type": "string",
-      "title": "Your Call Me number",
-      "description": "The copyable 10-digit number shown in the iPhone app.",
-      "required": true
+      "title": "Your Call Me number (optional)",
+      "description": "The 10-digit number shown in the iPhone app. Leave blank and ask Claude to set up Call Me \u2014 it will walk you through it and remember the number in ~/.aiphone/config.json.",
+      "required": false
     }
   }
 }

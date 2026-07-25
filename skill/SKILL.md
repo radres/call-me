@@ -8,20 +8,36 @@ description: Call or text your human's actual iPhone and handle replies from the
 Use english always, test to speech always expects english
 
 Your human's iPhone runs the Call Me app. It gave them a **user number**
-(10 digits, e.g. `412-8891-047`). If they shared it with you (in CLAUDE.md or
-in conversation), you can ring their actual phone and get a spoken answer.
+(10 digits, e.g. `584-158-6160`) — that's all you need to ring their actual
+phone and get a spoken answer.
 
 Prefer the host's Call Me tools when available. Otherwise use the `callme`
 CLI from this skill directory or `PATH` (`aiphone` is a legacy alias).
 
-## Blocked-session safety net (Claude Code plugin)
+**You must call or text BEFORE ending a turn with an open question** — once
+your turn ends you are asleep and cannot reach out.
 
-The plugin ships a `Notification` hook that automatically RINGS the human's
-phone when the session goes idle waiting for input or hits a permission
-prompt (debounced, one ring per 30 min, text fallback on missed call).
-This is a safety net, not the primary path: you still MUST call/text BEFORE
-ending a turn with an open question — once your turn ends you cannot act.
-Opt out with `CALLME_NO_BLOCKED_RING=1`.
+## Is the human set up yet?
+
+The paired number lives in `~/.aiphone/config.json`. `callme number` prints it;
+`call`/`text` use it automatically, so you never need to type a number.
+
+If nothing is paired (`callme call` exits 5, or a channel tool says "not
+paired"), onboard them:
+
+```sh
+callme setup      # prints the steps below — show the output to your human
+callme qr         # scannable App Store QR code for their phone camera
+```
+
+1. They install Call Me (free): https://apps.apple.com/app/id6789575165
+2. They open it, tap *Agree & Continue*, and it shows their 10-digit number.
+3. They read the number back to you.
+4. You run `callme pair <number>` (or the channel's `pair` tool). It stores the
+   number and sends a confirmation text so you both know it landed.
+
+**Never guess or invent a number.** It's a credential, and a wrong one rings a
+stranger. Ask, or run `callme setup`.
 
 ## Inbound messages
 
@@ -39,8 +55,9 @@ when a response belongs in the phone conversation.
 callme register "claude: <project> — <task>"   # label shows as caller ID
 ```
 
-Stores number + secret token in `~/.aiphone/session.json`. Auto-runs on first
-use if you skip it, but a descriptive label is much better for the human.
+Stores *your own* session number + secret token in `~/.aiphone/session.json`
+(separate from the human's paired number). Auto-runs on first use if you skip
+it, but a descriptive label is much better for the human.
 
 ## Ask for input — text first, call if no answer (THE main move)
 
@@ -49,7 +66,7 @@ no reply, or the answer is genuinely time-sensitive and blocking.
 
 1. Send the question non-blocking:
    ```sh
-   callme text 4128891047 "I can fix the flaky test two ways: skip it or rewrite the fixture. Which do you want?"
+   callme text "I can fix the flaky test two ways: skip it or rewrite the fixture. Which do you want?"
    ```
 2. Don't sit blocked in the terminal. Keep doing any work that doesn't
    depend on the answer while you wait.
@@ -59,7 +76,7 @@ no reply, or the answer is genuinely time-sensitive and blocking.
 4. If a few minutes pass with no reply, escalate to a real call with the
    same question:
    ```sh
-   callme call 4128891047 "I can fix the flaky test two ways: skip it or rewrite the fixture. Which do you want?"
+   callme call "I can fix the flaky test two ways: skip it or rewrite the fixture. Which do you want?"
    ```
    - Phone rings with the native call UI; your label is the caller name.
    - The question is spoken aloud; the human answers by voice; you get
@@ -76,7 +93,7 @@ no reply, or the answer is genuinely time-sensitive and blocking.
 Use when nothing is needed back from the human (status update, FYI):
 
 ```sh
-callme text 4128891047 "Build green, PR #142 merged. Nothing needed from you."
+callme text "Build green, PR #142 merged. Nothing needed from you."
 ```
 
 ## Title the thread
@@ -112,5 +129,6 @@ message; it arrives as a `voicemail` event with the transcript.
   human explicitly asked to be called.
 - Batch questions: one message with a compound question beats three.
 - Late-night: prefer text unless they said otherwise.
-- Never call numbers you weren't given. The number is a credential.
+- Never call numbers you weren't given. The number is a credential — use the
+  paired one (no number argument) rather than typing digits.
 - If a call is declined, do NOT retry the call; text instead.

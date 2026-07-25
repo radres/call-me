@@ -3,7 +3,8 @@
     "command": "node",
     "args": ["${CLAUDE_PLUGIN_ROOT}/dist/channel.mjs"],
     "env": {
-      "AIPHONE_USER_NUMBER": "${user_config.user_number}"
+      "AIPHONE_USER_NUMBER": "${user_config.user_number}",
+      "CALLME_PLUGIN_ROOT": "${CLAUDE_PLUGIN_ROOT}"
     }
   }
 }
