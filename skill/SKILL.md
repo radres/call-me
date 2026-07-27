@@ -26,9 +26,15 @@ If nothing is paired (`callme call` exits 5, or a channel tool says "not
 paired"), onboard them:
 
 ```sh
-callme setup      # prints the steps below — show the output to your human
-callme qr         # scannable App Store QR code for their phone camera
+callme setup      # steps + scannable QR + link — paste the whole output back
+callme qr         # just the App Store QR code, if that's all you need
 ```
+
+Always show them **both** the QR code and the link — relay `callme setup`'s
+output verbatim, code block and all, rather than summarising it. They are on a
+phone; a code to point the camera at beats retyping a URL. Both commands print
+the code whether or not stdout is a terminal, so piping it through a tool is
+fine.
 
 1. They install Call Me (free): https://apps.apple.com/app/id6789575165
 2. They open it, tap *Agree & Continue*, and it shows their 10-digit number.

@@ -64,10 +64,15 @@ require_number() {
     cat >&2 <<'EOF'
 callme: no phone paired yet.
 
-Ask your human for the 10-digit number shown in the Call Me app, then:
+If they don't have the app yet, show them this — camera at the code:
+EOF
+    echo >&2
+    do_qr >&2
+    cat >&2 <<'EOF'
+
+Then: open it, tap Agree & Continue, read back the 10-digit number, and run
   callme pair <number>
 
-If they don't have the app yet, run `callme setup` and show them the output.
 Never guess a number — it is a credential, and a wrong one rings a stranger.
 EOF
     exit 5
@@ -154,10 +159,10 @@ do_qr() {
       --mono) color=0;;
     esac
   done
+  # Always draw the code — half-block glyphs survive a pipe just fine, and the
+  # main caller is an agent whose stdout is never a tty. Only drop the colours.
   if [ ! -t 1 ] || [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = "dumb" ]; then
-    echo "$APPSTORE_URL"
-    echo "(run \`callme qr\` in a terminal to get a scannable code)"
-    return
+    color=0
   fi
   awk -v big="$big" -v color="$color" '
     { rows[NR] = $0 } END {
@@ -182,9 +187,12 @@ do_setup() {
   cat <<EOF
 Show this to your human — it's how they get set up (takes a minute):
 
-1. Install "Call Me" on their iPhone:
-     $APPSTORE_URL
-   or run \`callme qr\` and let them scan the code with the camera.
+1. Install "Call Me" on their iPhone — point the camera at this:
+EOF
+  echo
+  do_qr "$@"
+  cat <<EOF
+
 2. Open the app, tap Agree & Continue — it shows a 10-digit number.
 3. They read the number back to you.
 4. You run:  callme pair <that number>
