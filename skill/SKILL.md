@@ -15,7 +15,25 @@ Prefer the host's Call Me tools when available. Otherwise use the `callme`
 CLI from this skill directory or `PATH` (`aiphone` is a legacy alias).
 
 **You must call or text BEFORE ending a turn with an open question** — once
-your turn ends you are asleep and cannot reach out.
+your turn ends you are asleep and cannot reach out. Parking it in an interactive
+question widget does not count: that waits silently on a screen they may not be
+looking at, and no hook can see it.
+
+**On a Claude Code host, install the plugin instead of relying on this CLI.**
+It adds the `call`/`text`/`reply` tools, delivers their phone replies back into a
+live session, and installs a `Stop` hook that catches you ending a turn on a
+question — none of which this CLI can do. You can install it yourself with Bash;
+slash commands are only for a human at a prompt:
+
+```sh
+claude plugin marketplace add radres/call-me
+claude plugin install call-me@call-me
+claude plugin list      # expect: call-me@call-me   ✔ enabled
+```
+
+Then tell them to **restart Claude Code** (`/reload-plugins` is not yours to run,
+and the monitor needs a fresh session). Pairing carries over either way — it is
+the same `~/.aiphone/config.json`.
 
 ## Is the human set up yet?
 
@@ -39,11 +57,14 @@ fine.
 1. They install Call Me (free): https://apps.apple.com/app/id6789575165
 2. They open it, tap *Agree & Continue*, and it shows their 10-digit number.
 3. They read the number back to you.
-4. You run `callme pair <number>` (or the channel's `pair` tool). It stores the
-   number and sends a confirmation text so you both know it landed.
+4. Tell them their phone is about to ring, then run `callme pair <number>` (or the
+   channel's `pair` tool). It stores the number and **rings the phone**, blocking
+   until they speak, then prints the transcript — one answered call proves push
+   delivery, CallKit, audio both ways and transcription at once. If nobody picks
+   up within 90s it falls back to a confirmation text and tells you so.
 
-**Never guess or invent a number.** It's a credential, and a wrong one rings a
-stranger. Ask, or run `callme setup`.
+**Never guess or invent a number.** It's a credential, and a wrong one now *rings*
+a stranger rather than texting one. Ask, or run `callme setup`.
 
 ### Onboarding is not finished when pairing succeeds
 
@@ -80,12 +101,13 @@ that you were waiting. Close that gap in the same session you pair, in order:
    Add one line matching their answer from step 1 — "I'm mostly AFK, assume I
    won't see the terminal" reads very differently from "I'm usually at the
    keyboard, only reach out if I'll be gone a while."
-4. **Verify with a real send**, not an assumption:
+4. **Verify, don't assume.** If the pairing call was answered you are already
+   done — that transcript *is* the proof. Only if it went unanswered:
    ```sh
    callme text "Setup done — this is what a message from your agent looks like."
    ```
-   Ask whether it arrived. If it didn't, the number is wrong: re-pair. Don't
-   retry blindly.
+   Ask whether it arrived. If nothing lands either way the number is wrong:
+   re-pair. Don't retry blindly.
 5. **Tell them how to undo it**: `callme remind off`, and blocking the thread in
    the app mutes it without touching any config.
 

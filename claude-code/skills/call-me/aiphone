@@ -14,7 +14,7 @@ callme — your AI can call its human
 
   callme setup                   what to tell a human who hasn't set up the app
   callme qr [--big|--mono]       App Store QR code to scan with the phone camera
-  callme pair <number>           remember the human's 10-digit Call Me number
+  callme pair <number>           remember the number AND ring the phone to prove it
   callme number                  show the paired number
   callme remind [on|off|status]  remind EVERY session to reach out before it ends
                                   a turn on an open question (for AFK humans)
@@ -93,11 +93,34 @@ do_pair() {
     > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
   chmod 600 "$USER_CONF"
   echo "paired with $(display "$n") (stored in $USER_CONF)"
-  if do_text "$n" "Paired ✅ — this AI session can now text and call you." >/dev/null 2>&1; then
-    echo "sent a confirmation text; if it didn't arrive, the number is wrong"
-  else
-    echo "note: confirmation text failed — double-check the number" >&2
+
+  # Ring, don't text. A voice answer proves the entire loop in one shot — push
+  # delivery, CallKit, audio both ways, transcription — and it is the moment the
+  # product sells itself. The text is only the fallback.
+  echo "ringing your phone now — answer it and say anything back"
+  local rc=0
+  # do_call `exit`s on no-answer, which under `set -e` would kill this script:
+  # run it in a subshell so we can catch the code and fall back. Uncaptured, so
+  # the transcript streams live.
+  (
+    AIPHONE_TIMEOUT="${AIPHONE_PAIR_TIMEOUT:-90}"
+    do_call "$n" "You're paired with your AI assistant. Say anything back so I know I can hear you."
+  ) || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "pairing confirmed by voice — I can ring you, and you can answer."
+    return 0
   fi
+
+  # No answer, or the call failed outright. Never redial — a declined call means stop.
+  if do_text "$n" "Paired ✅ — this AI session can now text and call you." >/dev/null 2>&1; then
+    echo "sent a confirmation text instead. Ask whether it arrived; if it didn't, the"
+    echo "number is wrong — re-pair with the right one rather than retrying."
+    return 0
+  fi
+  echo "callme pair: stored $(display "$n"), but NOTHING reached the phone — neither the" >&2
+  echo "call nor a text. The number is probably wrong; ask them to read it off the app" >&2
+  echo "home screen again. Do not report setup as finished." >&2
+  exit 7
 }
 
 do_unpair() {
@@ -212,6 +235,30 @@ do_qr() {
 
 do_setup() {
   local n; n=$(resolve_number)
+  # The CLI is the fallback door, not the good one. If this machine has Claude
+  # Code, an agent that got here by copying this script took a wrong turn — say
+  # so at the exact moment it is looking, because it will not go back and reread
+  # a README. (An agent CAN install the plugin itself; slash commands are only
+  # for a human typing.)
+  if command -v claude >/dev/null 2>&1; then
+    cat <<'EOF'
+--- FOR YOU, THE AGENT: this machine has Claude Code, so install the PLUGIN ---
+
+This CLI works, but on a Claude Code host it is the lesser door: the plugin also
+gives you call/text/reply tools, delivers their phone replies back into a live
+session, and installs a Stop hook that catches you ending a turn on a question.
+You can install it yourself, right now, with Bash — no slash commands needed:
+
+    claude plugin marketplace add radres/call-me
+    claude plugin install call-me@call-me
+    claude plugin list            # expect: call-me@call-me   ✔ enabled
+
+Then tell them to RESTART Claude Code (not /reload-plugins — that command is not
+yours to run, and the monitor needs a fresh session). Keep using this CLI in the
+meantime; pairing carries over, it is the same ~/.aiphone/config.json.
+
+EOF
+  fi
   cat <<EOF
 Show this to your human — it's how they get set up (takes a minute):
 
@@ -223,7 +270,9 @@ EOF
 
 2. Open the app, tap Agree & Continue — it shows a 10-digit number.
 3. They read the number back to you.
-4. You run:  callme pair <that number>
+4. Tell them their phone is about to ring, then run:  callme pair <that number>
+   Pairing RINGS the phone and waits for them to speak — that answer is the
+   proof the whole loop works. If nobody picks up it falls back to a text.
 
 Then \`callme text "hi"\` lands on their phone and \`callme call "question"\`
 rings it and returns what they say.
@@ -250,14 +299,17 @@ C. Write a standing rule into their user-level instructions
        I'm reachable on my phone through Call Me. When you need a decision, an
        answer, or input from me, contact me instead of stopping with the
        question in your final message — once your turn ends you are asleep and
-       cannot reach me.
+       cannot reach me. That includes parking it in an interactive question
+       widget: that just waits silently on a screen I'm not looking at, and no
+       hook can see it, so reach out yourself.
        Text first (callme text / the text tool); call when it is blocking or
        time-sensitive. Never hardcode my number — 'callme number' reads it.
        [rarely]    I'm usually at the keyboard, so only reach out if I'll be gone a while.
        [sometimes] I'm away maybe half the time. Text me and keep working.
        [usually]   I'm mostly AFK. Assume I won't see the terminal: always reach out.
 
-D. Verify it end to end, don't assume:
+D. Verify it end to end, don't assume. If the pairing call was answered, this is
+   already done — the transcript IS the proof. Only if it went unanswered:
        callme text "Setup done — this is what a message from your agent looks like."
    Ask them whether it arrived. If it did not, the number is wrong: re-pair.
 

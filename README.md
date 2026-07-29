@@ -26,15 +26,35 @@ message):
 /plugin install call-me@call-me
 ```
 
-Then paste this third message, and Claude does the rest of the setup itself:
+Then **restart Claude Code** — the inbound monitor only comes up in a fresh
+session.
+
+<details>
+<summary>Prefer one line in a terminal, or want to just ask Claude to do it?</summary>
+
+Same thing, non-interactively — this also works before Claude Code has ever been
+launched, and an agent can run it itself:
+
+```sh
+claude plugin marketplace add radres/call-me
+claude plugin install call-me@call-me
+claude plugin list      # expect: call-me@call-me   ✔ enabled
+```
+
+So "install Call Me for me" is a complete instruction — you don't have to type
+the slash commands yourself.
+</details>
+
+Then paste this message, and Claude does the rest of the setup itself:
 
 ```
-Set up Call Me for me, all of it — not just pairing. Run the setup tool and show
-me its output verbatim so I can scan the QR code. Ask me how often I'm away from
-the keyboard, then based on my answer: turn on the standing reminder if it fits,
-append a "## Reaching me" rule to my ~/.claude/CLAUDE.md (read it first and
-append — don't overwrite), and send me a test text to prove it works. Tell me
-how to undo both when you're done.
+Set up Call Me for me, all of it — not just pairing. If the plugin isn't
+installed yet, install it yourself with the `claude plugin` shell commands. Run
+the setup tool and show me its output verbatim so I can scan the QR code. Ask me
+how often I'm away from the keyboard, then based on my answer: turn on the
+standing reminder if it fits, append a "## Reaching me" rule to my
+~/.claude/CLAUDE.md (read it first and append — don't overwrite), and prove it
+works end to end. Tell me how to undo both when you're done.
 ```
 
 That gets you the fully automated setup: Claude can reach your phone, **and** it

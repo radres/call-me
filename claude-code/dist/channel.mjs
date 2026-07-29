@@ -15600,6 +15600,8 @@ var APP_STORE_URL = "https://apps.apple.com/app/id6789575165";
 // channel.mjs
 var api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
 var projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
+var SETUP_COPY_REV = "2026-07-30";
+var PAIR_CALL_TIMEOUT_S = 90;
 var stateFile = stateFileFor();
 var stateKey = (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "") || (process.env.CLAUDE_PROJECT_DIR || process.cwd()).replace(/[^A-Za-z0-9]+/g, "-");
 hardenModes();
@@ -15608,12 +15610,12 @@ function pairedNumber() {
   return currentUserNumber().number;
 }
 var mcp = new Server(
-  { name: "callme", version: "0.4.0" },
+  { name: "callme", version: "0.5.1" },
   {
     capabilities: {
       tools: {}
     },
-    instructions: "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number."
+    instructions: "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number. pair RINGS their phone to prove the loop, so tell them in one line that it is about to ring before you call pair; it blocks until they answer or it times out."
   }
 );
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -15648,7 +15650,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "pair",
-      description: "Remember the 10-digit Call Me number the human read out of the app. Every Claude session on this machine then reaches the same phone.",
+      description: "Remember the 10-digit Call Me number the human read out of the app, then RING that phone to prove the loop works and return what they say. Tell them their phone is about to ring before you call this \u2014 it blocks for up to 90s and falls back to a text if nobody answers. Every Claude session on this machine then reaches the same phone.",
       inputSchema: {
         type: "object",
         properties: { number: { type: "string", description: "10-digit number from the app" } },
@@ -15686,18 +15688,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "call": {
       const to = pairedNumber();
       if (!to) return notPaired();
-      const session = await ensureSession();
-      const result = await requestJson("/calls", {
-        method: "POST",
-        body: {
-          session_token: session.session_token,
-          to,
-          text: String(args.question || ""),
-          timeout_s: Number(args.timeout_seconds || 300)
-        },
-        timeoutMs: (Number(args.timeout_seconds || 300) + 30) * 1e3
-      });
-      markReachedOut(stateKey, "call");
+      const result = await placeCall(to, String(args.question || ""), Number(args.timeout_seconds || 300));
       return toolResult(JSON.stringify(result));
     }
     case "setup":
@@ -15712,16 +15703,35 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       writeConfig({ user_number: number3, source: "mcp-pair" });
       forgetCachedNumber();
-      let confirmation = "";
+      const shared = `Every Call Me session on this machine now uses ${displayNumber(number3)}.`;
       try {
+        const result = await placeCall(
+          number3,
+          "You're paired with your AI assistant. Say anything back so I know I can hear you.",
+          PAIR_CALL_TIMEOUT_S
+        );
+        if (result?.status === "completed") {
+          return toolResult(
+            `Paired with ${displayNumber(number3)} and confirmed by voice. They said: "${result.transcript || ""}". ${shared}`
+          );
+        }
         await sendText(number3, "Paired \u2705 \u2014 this Claude session can now text and call you.");
-        confirmation = " A confirmation text was sent; if it did not arrive the number is wrong.";
+        return toolResult(
+          `Paired with ${displayNumber(number3)}. The confirmation call was ${result?.status || "unanswered"}, so a text was sent instead \u2014 ask whether it arrived. If it did not, the number is wrong: re-pair with the right one rather than retrying. ${shared}`
+        );
       } catch (error2) {
-        confirmation = ` Confirmation text failed (${error2.message}) \u2014 double-check the number.`;
+        try {
+          await sendText(number3, "Paired \u2705 \u2014 this Claude session can now text and call you.");
+          return toolResult(
+            `Paired with ${displayNumber(number3)}. The confirmation call failed (${error2.message}), so a text was sent instead \u2014 ask whether it arrived. ${shared}`
+          );
+        } catch (textError) {
+          return toolResult(
+            `Stored ${displayNumber(number3)}, but NOTHING reached the phone \u2014 neither the call (${error2.message}) nor a text (${textError.message}). The number is probably wrong; ask them to read it off the app's home screen again. Do not report setup as finished.`,
+            true
+          );
+        }
       }
-      return toolResult(
-        `Paired with ${displayNumber(number3)}. Every Call Me session on this machine now uses it.` + confirmation
-      );
     }
     case "identity": {
       const session = await ensureSession();
@@ -15731,7 +15741,10 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         display: session.display,
         label: `Claude: ${projectName}`,
         paired_phone: paired.number ? displayNumber(paired.number) : null,
-        paired_source: paired.source
+        paired_source: paired.source,
+        // Also keeps SETUP_COPY_REV referenced so esbuild cannot tree-shake the
+        // literal out of dist/channel.mjs, which is what the sync check greps.
+        setup_copy_rev: SETUP_COPY_REV
       }));
     }
     case "set_title": {
@@ -15759,8 +15772,10 @@ function setupText() {
     "2. Open it and tap Agree & Continue \u2014 the app shows your 10-digit number.",
     "3. Read that number back to me.",
     "",
-    "Then call the pair tool with those 10 digits. After that I can text you and ring your phone,",
-    "and your replies come straight back into this session.",
+    "Then call the pair tool with those 10 digits \u2014 tell them first that their phone is about to",
+    "ring, because pairing RINGS it and waits for them to speak. That answer is the proof the whole",
+    "loop works; if nobody picks up it falls back to a text. After that I can text you and ring your",
+    "phone, and your replies come straight back into this session.",
     "",
     "--- FOR YOU, THE AGENT: finish the job, don't stop at pairing ---",
     "",
@@ -15778,12 +15793,15 @@ function setupText() {
     "",
     'C. Append a "## Reaching me" rule to their ~/.claude/CLAUDE.md (read it',
     "   first, never overwrite): contact them instead of ending a turn with the",
-    "   question in your final message; text first, call when blocking; never",
+    "   question in your final message \u2014 or parking it in an interactive question",
+    "   widget, which waits silently and no hook can see; text first, call when blocking; never",
     `   hardcode the number (\`${cli} number\` reads it). Match the tone to their`,
     `   answer from A \u2014 "mostly AFK, always reach out" vs "only if I'll be gone".`,
     "",
-    "D. Verify with a real send (the text tool) and ask whether it arrived. If it",
-    "   did not, the number is wrong \u2014 re-pair rather than retrying.",
+    "D. Verify, don't assume. If the pairing call was answered you are done \u2014 that",
+    "   transcript IS the proof. Only if it went unanswered: send a text and ask",
+    "   whether it arrived. If nothing lands either way the number is wrong \u2014",
+    "   re-pair rather than retrying.",
     "",
     `E. Tell them how to undo it: \`${cli} remind off\`, and blocking a thread in`,
     "   the app mutes it.",
@@ -15795,6 +15813,16 @@ function notPaired() {
   return toolResult(`${NOT_PAIRED_HINT}
 
 ${setupText()}`, true);
+}
+async function placeCall(to, question, timeoutS) {
+  const session = await ensureSession();
+  const result = await requestJson("/calls", {
+    method: "POST",
+    body: { session_token: session.session_token, to, text: question, timeout_s: timeoutS },
+    timeoutMs: (timeoutS + 30) * 1e3
+  });
+  markReachedOut(stateKey, "call");
+  return result;
 }
 async function sendText(to, text) {
   if (!text.trim()) throw new Error("text must not be empty");

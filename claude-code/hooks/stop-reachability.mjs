@@ -170,6 +170,16 @@ function looksParked(message) {
   // Only the closing stretch matters: that is where a parked question lands.
   const tail = prose.slice(-600);
   if (/\?\s*$/.test(tail.trimEnd())) return true;
+
+  // A question is not always the very last character. The real miss that
+  // motivated this: "1. License type — MIT, Apache 2.0, or something else?
+  // 2. Copyright holder name — the name to put in the copyright line." The
+  // question is on its own line and the message ends on a statement, so the
+  // trailing-? test above and every stock phrase below all fail, and the human
+  // was never contacted. A line that ends in `?` is a question being asked —
+  // prose almost never breaks a line there otherwise, so this stays narrow.
+  if (tail.split("\n").some((line) => /\?$/.test(line.trimEnd()))) return true;
+
   return PARKED_PATTERNS.some((pattern) => pattern.test(tail));
 }
 
