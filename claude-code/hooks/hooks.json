@@ -1,0 +1,15 @@
+{
+  "description": "At the moment a turn ends, remind Claude that a question it parked on its human needs a text or a call — the model decides, the hook never dials.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-reachability.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

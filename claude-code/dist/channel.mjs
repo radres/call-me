@@ -15487,6 +15487,15 @@ function stateFileFor({ projectDir } = {}) {
   const dir = projectDir || process.env.CLAUDE_PROJECT_DIR || process.cwd();
   return join(stateDir(), `claude-channel-${dir.replace(/[^A-Za-z0-9]+/g, "-")}.json`);
 }
+function reachStampPath(stateKey2) {
+  return join(stateDir(), `claude-reach-${stateKey2}.json`);
+}
+function markReachedOut(stateKey2, kind) {
+  try {
+    writeJsonPrivate(reachStampPath(stateKey2), { at: Date.now(), kind });
+  } catch {
+  }
+}
 function writeJsonPrivate(file, data) {
   mkdirSync(stateDir(), { recursive: true, mode: 448 });
   const tmp = `${file}.tmp`;
@@ -15570,7 +15579,7 @@ function pruneStaleState({ days = 30 } = {}) {
   let removed = 0;
   try {
     for (const name of readdirSync(stateDir())) {
-      if (!/^claude-(session|monitor|channel)-.*\.json$/.test(name)) continue;
+      if (!/^claude-(session|monitor|channel|reach)-.*\.json$/.test(name)) continue;
       const file = join(stateDir(), name);
       try {
         if (statSync(file).mtimeMs < cutoff) {
@@ -15592,6 +15601,7 @@ var APP_STORE_URL = "https://apps.apple.com/app/id6789575165";
 var api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
 var projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
 var stateFile = stateFileFor();
+var stateKey = (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "") || (process.env.CLAUDE_PROJECT_DIR || process.cwd()).replace(/[^A-Za-z0-9]+/g, "-");
 hardenModes();
 pruneStaleState();
 function pairedNumber() {
@@ -15603,7 +15613,7 @@ var mcp = new Server(
     capabilities: {
       tools: {}
     },
-    instructions: "Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number."
+    instructions: "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number."
   }
 );
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -15687,6 +15697,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         },
         timeoutMs: (Number(args.timeout_seconds || 300) + 30) * 1e3
       });
+      markReachedOut(stateKey, "call");
       return toolResult(JSON.stringify(result));
     }
     case "setup":
@@ -15769,6 +15780,7 @@ async function sendText(to, text) {
     method: "POST",
     body: { session_token: session.session_token, to, body: text }
   });
+  markReachedOut(stateKey, "text");
 }
 async function requestJson(path, { method = "GET", body, timeoutMs = 3e4 } = {}) {
   const response = await fetch(`${api}${path}`, {

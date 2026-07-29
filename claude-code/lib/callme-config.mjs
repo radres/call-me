@@ -56,6 +56,25 @@ export function stateFileFor({ projectDir } = {}) {
   return join(stateDir(), `claude-channel-${dir.replace(/[^A-Za-z0-9]+/g, "-")}.json`);
 }
 
+/**
+ * Where a session records that it just reached the human. The Stop hook reads it
+ * to stay quiet when the model already texted or called during the same turn.
+ * Keyed the same way as stateFileFor(), so the hook can derive it from the hook
+ * payload's session_id without inheriting CLAUDE_CODE_SESSION_ID.
+ */
+export function reachStampPath(stateKey) {
+  return join(stateDir(), `claude-reach-${stateKey}.json`);
+}
+
+/** Note that the human was just contacted, for reachStampPath() readers. */
+export function markReachedOut(stateKey, kind) {
+  try {
+    writeJsonPrivate(reachStampPath(stateKey), { at: Date.now(), kind });
+  } catch {
+    // Best effort: a missed stamp only costs a redundant reminder.
+  }
+}
+
 /** Write JSON atomically at 0600. A writeFileSync mode arg won't fix an existing file. */
 export function writeJsonPrivate(file, data) {
   mkdirSync(stateDir(), { recursive: true, mode: 0o700 });
@@ -170,7 +189,7 @@ export function pruneStaleState({ days = 30 } = {}) {
   let removed = 0;
   try {
     for (const name of readdirSync(stateDir())) {
-      if (!/^claude-(session|monitor|channel)-.*\.json$/.test(name)) continue;
+      if (!/^claude-(session|monitor|channel|reach)-.*\.json$/.test(name)) continue;
       const file = join(stateDir(), name);
       try {
         if (statSync(file).mtimeMs < cutoff) {

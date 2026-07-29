@@ -94,6 +94,28 @@ no reply, or the answer is genuinely time-sensitive and blocking.
      sentence. Include the options in the question.
 5. If a call is declined, do NOT retry the call — send a text instead.
 
+### If you text and keep working, park a check-back
+
+The failure mode here is silent: you text a question, work on something else,
+finish that work, and end your turn — and the unanswered question is simply
+lost, because ending the turn puts you to sleep. Before you end a turn with a
+question still outstanding, do one of:
+
+- **Escalate to `callme call`** if the answer is actually blocking. It blocks
+  until they speak, so the answer cannot go missing.
+- **Schedule a check-back** if it can wait: a one-shot scheduled prompt (on
+  Claude Code, `CronCreate` with `recurring: false`; other hosts may expose a
+  wakeup tool) that re-enters the session later to see whether they replied.
+  Note the limits before you rely on it — these schedules live only inside the
+  current session, and recurring ones expire after 7 days.
+- **Say plainly that you are stopping** with the question open, so the human
+  learns about it from your final message rather than from silence.
+
+On Claude Code the plugin also ships a `Stop` hook that catches this: if your
+final message looks like a parked question it reminds you, once, before you go
+idle. Treat that as a safety net, not the plan — it is suppressed by debounce
+and can be dropped on some turn-ending paths.
+
 ## Text — non-blocking notification
 
 Use when nothing is needed back from the human (status update, FYI):

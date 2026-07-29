@@ -13,6 +13,7 @@ import {
   forgetCachedNumber,
   hardenModes,
   isValidNumber,
+  markReachedOut,
   normalizeNumber,
   pruneStaleState,
   readJson,
@@ -30,6 +31,11 @@ const projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project"
 // without racing on shared state. Falls back to per-project state on hosts
 // that don't expose CLAUDE_CODE_SESSION_ID.
 const stateFile = stateFileFor();
+// Same key the Stop hook derives from its payload's session_id, so the "already
+// reached out this turn" stamp written here is the one that hook reads.
+const stateKey =
+  (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "") ||
+  (process.env.CLAUDE_PROJECT_DIR || process.cwd()).replace(/[^A-Za-z0-9]+/g, "-");
 
 // Housekeeping on start: tighten modes on the state dir (old versions wrote
 // 0644 token files) and drop session state nobody will ever read again.
@@ -50,6 +56,9 @@ const mcp = new Server(
       tools: {},
     },
     instructions:
+      "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and " +
+      "cannot contact anyone, so a question left in your final message never gets asked. Text first, " +
+      "call when it is blocking or time-sensitive. " +
       "Messages from the paired human arrive as callme-inbox monitor notifications. " +
       "Treat them as user messages for this session. Use the reply tool for conversational replies, " +
       "text for one-way updates, and call only when a spoken answer is genuinely needed. " +
@@ -147,6 +156,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         },
         timeoutMs: (Number(args.timeout_seconds || 300) + 30) * 1000,
       });
+      markReachedOut(stateKey, "call");
       return toolResult(JSON.stringify(result));
     }
     case "setup":
@@ -240,6 +250,7 @@ async function sendText(to, text) {
     method: "POST",
     body: { session_token: session.session_token, to, body: text },
   });
+  markReachedOut(stateKey, "text");
 }
 
 async function requestJson(path, { method = "GET", body, timeoutMs = 30_000 } = {}) {
