@@ -24,6 +24,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  alwaysRemind,
   isValidNumber,
   reachStampPath,
   resolveUserNumber,
@@ -75,12 +76,15 @@ async function main() {
   const sessionId = String(input.session_id || "").replace(/[^A-Za-z0-9-]/g, "");
   const cwd = typeof input.cwd === "string" ? input.cwd : "";
 
-  // Only sessions that actually opted into Call Me get a nudge. The per-session
-  // state file is written by the MCP server / monitor on first real use, so its
-  // existence is the same "this session uses call-me" signal that scopes the
-  // monitor to on-skill-invoke. A session that never touched the skill is silent.
-  const stateFile = optedInStateFile(sessionId, cwd);
-  if (!stateFile) return;
+  // Scope. By default only sessions that actually opted into Call Me get a nudge:
+  // the per-session state file is written by the MCP server / monitor on first
+  // real use, so its existence is the same signal that scopes the monitor to
+  // on-skill-invoke, and a session that never touched the skill stays silent.
+  //
+  // That default has an onboarding hole, though — a human who is usually away
+  // wants the backstop in sessions that would never think to mention Call Me at
+  // all. `callme remind on` sets always_remind for exactly that case.
+  if (!alwaysRemind() && !optedInStateFile(sessionId, cwd)) return;
 
   // A phone must be paired — but resolved ONLY through the shared precedence
   // rules (env override -> config.json -> this session's own legacy file).

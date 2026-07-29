@@ -26,15 +26,35 @@ message):
 /plugin install call-me@call-me
 ```
 
-Then just tell Claude: **"set up Call Me"**. It asks for the number from the
-app, remembers it, and sends you a confirmation text. From then on Claude can
-text you and ring your phone, and your replies from the app flow straight back
-into the live session.
+Then paste this third message, and Claude does the rest of the setup itself:
 
-You can also paste the number into the plugin's config field when prompted —
-same result. Either way it lands in `~/.aiphone/config.json`, so **every** Claude
-session on the machine reaches your phone, and re-pairing to a new phone takes
-effect immediately without restarting anything.
+```
+Set up Call Me for me, all of it — not just pairing. Run the setup tool and show
+me its output verbatim so I can scan the QR code. Ask me how often I'm away from
+the keyboard, then based on my answer: turn on the standing reminder if it fits,
+append a "## Reaching me" rule to my ~/.claude/CLAUDE.md (read it first and
+append — don't overwrite), and send me a test text to prove it works. Tell me
+how to undo both when you're done.
+```
+
+That gets you the fully automated setup: Claude can reach your phone, **and** it
+will actually do so in future sessions instead of parking a question in a final
+message and going to sleep. Concretely it sets up:
+
+| | What it does |
+|---|---|
+| **`call` / `text` / `reply` tools** | Claude rings your phone or texts it; your spoken answer comes back as text |
+| **Inbound monitor** | Replies you send from the app land in the live Claude session, even hours later |
+| **`Stop` hook** | At the instant a turn ends, if Claude's last message looks like a question it parked on you, it gets reminded to reach out. It reminds — it never dials on its own |
+| **`~/.claude/CLAUDE.md` rule** | Carries the behaviour to every session and to hosts with no hook |
+
+The number lands in `~/.aiphone/config.json`, so **every** Claude session on the
+machine reaches your phone, and re-pairing to a new phone takes effect
+immediately without restarting anything. You can also paste the number into the
+plugin's config field when prompted — same result.
+
+Two levers afterwards: `callme remind off` stops the every-session reminder, and
+blocking a thread in the app mutes it without touching any config.
 
 ## 3. Any other agent (Codex, scripts, cron jobs, …)
 
@@ -54,19 +74,30 @@ directly — it teaches the full flow (setup, pair, call, text, listen, title).
 
 ## Teach your agent
 
-Drop this in your `CLAUDE.md` / agent instructions:
+The setup in step 2 writes this for you. If you'd rather do it by hand, append it
+to your `CLAUDE.md` / `AGENTS.md`:
 
+```markdown
+## Reaching me
+I'm reachable on my phone through Call Me. When you need a decision, an answer,
+or my input, contact me rather than ending your turn with the question sitting in
+your final message — once the turn ends you are asleep and cannot reach me.
+Text first; call when it is blocking or time-sensitive. Never hardcode my
+number: `callme number` reads it.
 ```
-I'm reachable on my phone through Call Me.
-Claude Code: install the call-me plugin from github.com/radres/call-me,
-then run its setup tool if we aren't paired yet.
-Other agents: use the callme CLI (skill/ dir) — `callme setup` explains
-pairing, then `callme call "question"` rings me and returns what I say.
-```
+
+Add a line about how reachable you actually are — "I'm mostly AFK, assume I won't
+see the terminal" produces very different behaviour from "I'm usually at the
+keyboard." That one line is the difference between an agent that pings you
+constantly and one that never does.
 
 Notice there's no number in there: the number is a credential, so it lives in
 `~/.aiphone/config.json` (mode 0600) instead of your notes. `callme number`
 reads it back, `callme pair <number>` changes it.
+
+**Cloned this repo?** Then you don't need any of the above — `CLAUDE.md` at the
+repo root is picked up automatically, and it walks your agent through the whole
+setup. Just say "set up Call Me".
 
 ## How it works
 

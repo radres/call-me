@@ -57,6 +57,17 @@ export function stateFileFor({ projectDir } = {}) {
 }
 
 /**
+ * Has the human asked to be reminded in EVERY session, not just ones that have
+ * already used Call Me? Off by default: the reminder is then scoped to sessions
+ * that opted in by using the skill. Onboarding turns it on for humans who are
+ * usually away from the keyboard (`callme remind on`), which is what makes the
+ * backstop work in a session that would otherwise never mention Call Me.
+ */
+export function alwaysRemind() {
+  return readConfig()?.always_remind === true;
+}
+
+/**
  * Where a session records that it just reached the human. The Stop hook reads it
  * to stay quiet when the model already texted or called during the same turn.
  * Keyed the same way as stateFileFor(), so the hook can derive it from the hook

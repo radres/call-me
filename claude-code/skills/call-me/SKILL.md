@@ -45,6 +45,50 @@ fine.
 **Never guess or invent a number.** It's a credential, and a wrong one rings a
 stranger. Ask, or run `callme setup`.
 
+### Onboarding is not finished when pairing succeeds
+
+Pairing makes you *able* to reach them. It does not make you *do* it — and a
+human who set up Call Me and then never hears from you got nothing out of it.
+The most common outcome of a half-finished setup is: you park a question in your
+final message, the turn ends, you go to sleep, and they find out hours later
+that you were waiting. Close that gap in the same session you pair, in order:
+
+1. **Ask how often they're away.** "While I work, are you away from the keyboard
+   rarely, sometimes, or usually?" One question, and it decides the rest.
+2. **If sometimes or usually, turn on the standing reminder:**
+   ```sh
+   callme remind on
+   ```
+   On Claude Code the plugin ships a `Stop` hook that reminds you, at the moment
+   a turn ends, when your last message looks like a parked question. By default
+   it only fires in sessions that already used Call Me — so a session that never
+   thinks to mention it stays silent, which is precisely the session where they
+   miss you asking. `remind on` makes it fire in every session. (`callme remind
+   off` / `status` to change or check it later.)
+3. **Write the standing rule into their instruction file** — `~/.claude/CLAUDE.md`
+   for Claude Code, `AGENTS.md` for Codex and others. **Read it first and append;
+   never overwrite.** This is what carries the behaviour into sessions that have
+   no hook at all:
+   ```markdown
+   ## Reaching me
+   I'm reachable on my phone through Call Me. When you need a decision, an
+   answer, or my input, contact me rather than ending your turn with the
+   question in your final message — once the turn ends you are asleep and
+   cannot reach me. Text first; call when it is blocking or time-sensitive.
+   Never hardcode my number: `callme number` reads it.
+   ```
+   Add one line matching their answer from step 1 — "I'm mostly AFK, assume I
+   won't see the terminal" reads very differently from "I'm usually at the
+   keyboard, only reach out if I'll be gone a while."
+4. **Verify with a real send**, not an assumption:
+   ```sh
+   callme text "Setup done — this is what a message from your agent looks like."
+   ```
+   Ask whether it arrived. If it didn't, the number is wrong: re-pair. Don't
+   retry blindly.
+5. **Tell them how to undo it**: `callme remind off`, and blocking the thread in
+   the app mutes it without touching any config.
+
 ## Inbound messages
 
 Treat an authenticated Call Me channel event as a new user message in the

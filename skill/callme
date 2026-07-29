@@ -16,6 +16,8 @@ callme — your AI can call its human
   callme qr [--big|--mono]       App Store QR code to scan with the phone camera
   callme pair <number>           remember the human's 10-digit Call Me number
   callme number                  show the paired number
+  callme remind [on|off|status]  remind EVERY session to reach out before it ends
+                                  a turn on an open question (for AFK humans)
   callme call "text"             RING the phone, speak the text, BLOCK until the
                                   spoken answer comes back (prints transcript)
   callme text "text"             send a text (push notification on the phone)
@@ -101,6 +103,32 @@ do_pair() {
 do_unpair() {
   rm -f "$USER_CONF"
   echo "unpaired (removed $USER_CONF)"
+}
+
+# Standing reminder: on Claude Code the plugin's Stop hook normally only nudges
+# sessions that already used Call Me. A human who is usually away wants the
+# nudge in EVERY session, including ones that would never mention Call Me.
+do_remind() {
+  need_jq
+  case "${1:-status}" in
+    status)
+      if [ -f "$USER_CONF" ] && [ "$(jq -r '.always_remind // false' "$USER_CONF")" = "true" ]; then
+        echo "on — every session is reminded before it ends a turn on an open question"
+      else
+        echo "off — only sessions that use Call Me are reminded (default)"
+      fi
+      ;;
+    on|off)
+      [ -f "$USER_CONF" ] || { echo "pair a phone first: callme pair <number>" >&2; exit 6; }
+      local want=false; [ "$1" = "on" ] && want=true
+      jq --argjson v "$want" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {always_remind:$v, updated_at:$t}' "$USER_CONF" \
+        > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
+      chmod 600 "$USER_CONF"
+      do_remind status
+      ;;
+    *) echo "usage: callme remind [on|off|status]" >&2; exit 1;;
+  esac
 }
 
 do_number() {
@@ -199,10 +227,49 @@ EOF
 
 Then \`callme text "hi"\` lands on their phone and \`callme call "question"\`
 rings it and returns what they say.
+
+--- FOR YOU, THE AGENT: finish the job, don't stop at pairing ---
+
+Pairing only makes you ABLE to reach them. These steps make you actually DO it,
+in future sessions, without them asking again. Do all of it now:
+
+A. Ask them one question: "How often are you away from the keyboard while I
+   work — rarely, sometimes, or usually?" Their answer sets the next step.
+
+B. If they said sometimes or usually, turn on the standing reminder:
+       callme remind on
+   Without this, the Claude Code Stop hook only nudges sessions that already
+   used Call Me — so a session that never thinks to mention it stays silent,
+   which is exactly the session where they miss you asking.
+
+C. Write a standing rule into their user-level instructions
+   (~/.claude/CLAUDE.md, or AGENTS.md for other agents). Read the file first
+   and append to it — never overwrite. Use their answer from A:
+
+       ## Reaching me
+       I'm reachable on my phone through Call Me. When you need a decision, an
+       answer, or input from me, contact me instead of stopping with the
+       question in your final message — once your turn ends you are asleep and
+       cannot reach me.
+       Text first (callme text / the text tool); call when it is blocking or
+       time-sensitive. Never hardcode my number — 'callme number' reads it.
+       [rarely]    I'm usually at the keyboard, so only reach out if I'll be gone a while.
+       [sometimes] I'm away maybe half the time. Text me and keep working.
+       [usually]   I'm mostly AFK. Assume I won't see the terminal: always reach out.
+
+D. Verify it end to end, don't assume:
+       callme text "Setup done — this is what a message from your agent looks like."
+   Ask them whether it arrived. If it did not, the number is wrong: re-pair.
+
+E. Tell them the two things they can change later: 'callme remind off' to stop
+   the every-session nudge, and blocking a thread in the app to mute it.
 EOF
   if valid_number "$n"; then
     echo
     echo "(already paired with $(display "$n") — pair again only to change phones)"
+    printf '(standing reminder is currently '
+    do_remind status
+    echo ")"
   fi
 }
 
@@ -321,6 +388,7 @@ case "$cmd" in
   qr)       do_qr "$@";;
   pair)     [ $# -ge 1 ] || usage; do_pair "$1";;
   unpair)   do_unpair;;
+  remind)   do_remind "${1:-status}";;
   number)   do_number "${1:-}";;
   register) register "${1:-AI session}";;
   call)     [ $# -ge 1 ] || usage; do_call "$@";;
