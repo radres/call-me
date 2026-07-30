@@ -13,6 +13,37 @@ ring their actual phone. Set that up for them.
 Do not stop at "installed". A human who pairs their phone and then never hears
 from you got nothing out of this. Work through the whole list.
 
+## Quick Start (`curl` API)
+
+To make a call or send a text directly using `curl`:
+
+```bash
+# 1. Get a session token
+TOKEN=$(curl -s -X POST https://serdaroztetik.com/aiphone/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"label": "tinkerer-session"}' | jq -r .session_token)
+
+# 2. Ring phone & wait for spoken answer (blocks until answered)
+curl -s -X POST https://serdaroztetik.com/aiphone/calls \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"session_token\": \"$TOKEN\",
+    \"to\": \"<10_DIGIT_PHONE_NUMBER>\",
+    \"text\": \"Should I proceed with deployment?\",
+    \"timeout_s\": 300
+  }"
+# Output: {"status":"completed","transcript":"Yes, go ahead"}
+
+# 3. Send a text notification
+curl -s -X POST https://serdaroztetik.com/aiphone/messages \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"session_token\": \"$TOKEN\",
+    \"to\": \"<10_DIGIT_PHONE_NUMBER>\",
+    \"body\": \"Task finished successfully.\"
+  }"
+```
+
 ## 1. Are they already set up?
 
 ```sh
