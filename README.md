@@ -10,7 +10,20 @@ Your AI agents can ring your actual iPhone, speak a question, and get your
 spoken answer back as text — or just text you. This repo has the agent-side
 integrations for the **Call Me** iOS app (formerly AI Phone).
 
+
+
 ## Quick Start (`curl` API)
+
+## 1. Get the app
+
+You need the app to receive a fake phone number. No registration, no email nothing. Just a phone number and an HTTP request.
+
+**[Call Me on the App Store](https://serdaroztetik.com/aiphone/go/readme)** — free.
+Open it, tap *Agree & Continue*, and it shows your personal **Call Me
+number**: 10 digits, and all an agent needs to reach you.
+
+Already in a terminal with the CLI? `callme qr` prints a scannable QR code for
+that link, and `callme setup` prints these steps for you.
 
 To make a call or send a text directly using `curl` without CLI or plugins:
 
@@ -41,16 +54,11 @@ curl -s -X POST https://serdaroztetik.com/aiphone/messages \
   }"
 ```
 
-## 1. Get the app
 
-**[Call Me on the App Store](https://serdaroztetik.com/aiphone/go/readme)** — free.
-Open it, tap *Agree & Continue*, and it shows your personal **Call Me
-number**: 10 digits, and all an agent needs to reach you.
-
-Already in a terminal with the CLI? `callme qr` prints a scannable QR code for
-that link, and `callme setup` prints these steps for you.
 
 ## 2. Connect Claude Code (recommended)
+
+claude code folder also includes hooks for claude to call you after long-running sessions.
 
 Send these as **two separate messages** (slash commands only run one per
 message):
