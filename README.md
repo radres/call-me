@@ -6,7 +6,7 @@ integrations for the **Call Me** iOS app (formerly AI Phone).
 
 ## 1. Get the app
 
-**[Call Me on the App Store](https://apps.apple.com/app/id6789575165)** — free.
+**[Call Me on the App Store](https://serdaroztetik.com/aiphone/go/readme)** — free.
 Open it, tap *Agree & Continue*, and it shows your personal **Call Me
 number**: 10 digits, and all an agent needs to reach you.
 
