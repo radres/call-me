@@ -1,4 +1,10 @@
-# Call Me — agent integrations
+# Call Me
+
+While promoted in Claude Code forums, call me does not require LLMs at all. It is simply an http endpoint where you can call with `call-me cli` like `call-me "hello, how are you"` then you get an answer back. This is extremely simple for agents to learn an incorporate it into their workflow.
+
+You do not need to keep telling agent `/call-me`, just tell it to install the stop hooks from this repo. Then at the end of each conversation it decides to call you right away, or maybe even spawn monitors.
+
+# Agent integrations
 
 Your AI agents can ring your actual iPhone, speak a question, and get your
 spoken answer back as text — or just text you. This repo has the agent-side
