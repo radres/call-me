@@ -28,10 +28,18 @@ that link, and `callme setup` prints these steps for you.
 To make a call or send a text directly using `curl` without CLI or plugins:
 
 ```bash
-# 1. Get a session token
+# 1. Register a session (label sets the caller/thread name shown on the iPhone)
 TOKEN=$(curl -s -X POST https://serdaroztetik.com/aiphone/sessions \
   -H "Content-Type: application/json" \
-  -d '{"label": "tinkerer-session"}' | jq -r .session_token)
+  -d '{"label": "Deploy Bot"}' | jq -r .session_token)
+
+# (Optional) Update caller label on an existing session token:
+curl -s -X POST https://serdaroztetik.com/aiphone/sessions/label \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"session_token\": \"$TOKEN\",
+    \"label\": \"Staging Release Bot\"
+  }"
 
 # 2. Ring phone & wait for spoken answer (blocks until answered)
 curl -s -X POST https://serdaroztetik.com/aiphone/calls \
@@ -60,7 +68,7 @@ curl -s -X POST https://serdaroztetik.com/aiphone/messages \
 
 claude code folder also includes hooks for claude to call you after long-running sessions.
 
-Send these as **two separate messages** (slash commands only run one per
+Send these as **three separate messages** (slash commands only run one per
 message):
 
 ```
@@ -70,6 +78,14 @@ message):
 ```
 /plugin install call-me@call-me
 ```
+
+```
+/plugin enable call-me@call-me
+```
+
+**Do not skip the third one.** `install` leaves the plugin *disabled* — it says
+so in its own output — and a disabled plugin gives Claude no `call`/`text`
+tools at all, so nothing will ever reach your phone.
 
 Then **restart Claude Code** — the inbound monitor only comes up in a fresh
 session.
@@ -83,7 +99,8 @@ launched, and an agent can run it itself:
 ```sh
 claude plugin marketplace add radres/call-me
 claude plugin install call-me@call-me
-claude plugin list      # expect: call-me@call-me   ✔ enabled
+claude plugin enable call-me@call-me   # REQUIRED — install leaves it disabled
+claude plugin list                     # expect: call-me@call-me   ✔ enabled
 ```
 
 So "install Call Me for me" is a complete instruction — you don't have to type

@@ -28,8 +28,14 @@ slash commands are only for a human at a prompt:
 ```sh
 claude plugin marketplace add radres/call-me
 claude plugin install call-me@call-me
-claude plugin list      # expect: call-me@call-me   ✔ enabled
+claude plugin enable call-me@call-me   # REQUIRED — install leaves it DISABLED
+claude plugin list                     # expect: call-me@call-me   ✔ enabled
 ```
+
+Do not drop the `enable` line. `install` writes `"call-me@call-me": false` into
+`~/.claude/settings.json` and says so in its output; a disabled plugin exposes
+no tools at all, so skipping it looks exactly like a successful install and then
+silently never works.
 
 Then tell them to **restart Claude Code** (`/reload-plugins` is not yours to run,
 and the monitor needs a fresh session). Pairing carries over either way — it is

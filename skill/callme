@@ -251,7 +251,12 @@ You can install it yourself, right now, with Bash — no slash commands needed:
 
     claude plugin marketplace add radres/call-me
     claude plugin install call-me@call-me
-    claude plugin list            # expect: call-me@call-me   ✔ enabled
+    claude plugin enable call-me@call-me   # REQUIRED — install leaves it DISABLED
+    claude plugin list                     # expect: call-me@call-me   ✔ enabled
+
+Do not drop the enable line. `install` writes "call-me@call-me": false into
+settings.json; a disabled plugin exposes NO tools, so skipping it looks like a
+clean install that then silently never works.
 
 Then tell them to RESTART Claude Code (not /reload-plugins — that command is not
 yours to run, and the monitor needs a fresh session). Keep using this CLI in the

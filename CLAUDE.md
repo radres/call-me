@@ -62,8 +62,16 @@ Claude Code ships a non-interactive plugin CLI:
 ```sh
 claude plugin marketplace add radres/call-me
 claude plugin install call-me@call-me      # --config user_number=<10 digits> if you know it
+claude plugin enable call-me@call-me       # REQUIRED — install leaves it DISABLED
 claude plugin list                          # must print: call-me@call-me   ✔ enabled
 ```
+
+**The `enable` line is not optional.** `claude plugin install` finishes by
+printing "This plugin is disabled by default" and writes
+`"call-me@call-me": false` into `~/.claude/settings.json`. A disabled plugin
+exposes no tools whatsoever, so an install without `enable` looks completely
+successful and then never works — the human restarts, sees nothing, and gives
+up. Trust `claude plugin list`, not the install's exit code.
 
 That gives them the `call`/`text`/`reply` tools, an inbound monitor that delivers
 their phone replies into the live session, and a `Stop` hook that reminds you to
@@ -89,8 +97,9 @@ distros, and your Bash tool calls are not login shells. Verify it, or use the
 absolute path everywhere including in the rule you write in step 4b.
 
 **If you are the human** reading this and want to do it by hand instead, the
-equivalent slash commands are `/plugin marketplace add radres/call-me` then
-`/plugin install call-me@call-me`, sent as two separate messages.
+equivalent slash commands are `/plugin marketplace add radres/call-me`, then
+`/plugin install call-me@call-me`, then `/plugin enable call-me@call-me`, sent
+as three separate messages. All three are required.
 
 ### Do not improvise an install
 
@@ -107,6 +116,10 @@ silently produces a plugin that does nothing:
 - Do **not** report success off the back of a copy. `claude plugin list` is the
   only check that means anything — `claude plugin validate` passes on a plugin
   that fails to load.
+- Do **not** stop after `install`. It leaves the plugin **disabled** and a
+  disabled plugin has no tools. `claude plugin enable call-me@call-me` is part
+  of the install, not a follow-up. This one silently ate almost every install
+  before 2026-07-31 — it is the single most expensive mistake on this list.
 
 ## 3. Pair
 
