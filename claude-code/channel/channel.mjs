@@ -154,8 +154,12 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "text": {
       const to = pairedNumber();
       if (!to) return notPaired();
-      await sendText(to, String(args.text || ""));
-      return toolResult("sent");
+      const { delivered, notice } = await sendText(to, String(args.text || ""));
+      if (delivered) return toolResult("sent");
+      return toolResult(
+        `sent, but NOT shown on their phone. ${notice} Do not repeat the text ` +
+          "expecting a different result — use call if you need them now.",
+      );
     }
     case "call": {
       const to = pairedNumber();
@@ -194,7 +198,17 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
           );
         }
         // Missed, declined or timed out — fall back to a text. Never redial.
-        await sendText(number, "Paired ✅ — this Claude session can now text and call you.");
+        const fallback = await sendText(
+          number,
+          "Paired ✅ — this Claude session can now text and call you.",
+        );
+        if (!fallback.delivered) {
+          return toolResult(
+            `Paired with ${displayNumber(number)}, but neither channel reached them: the ` +
+              `confirmation call was ${result?.status || "unanswered"} and the fallback text was ` +
+              `not shown. ${fallback.notice} ${shared}`,
+          );
+        }
         return toolResult(
           `Paired with ${displayNumber(number)}. The confirmation call was ${result?.status || "unanswered"}, ` +
             `so a text was sent instead — ask whether it arrived. If it did not, the number is wrong: ` +
@@ -320,14 +334,20 @@ async function placeCall(to, question, timeoutS) {
   return result;
 }
 
+// Returns the server's verdict, which is NOT just "did the request work": a
+// phone with notifications off keeps accepting texts that it never shows, so
+// `delivered:false` means the human has not been reached and the caller has to
+// know. Older servers omit the field; treat that as delivered rather than
+// crying wolf on every send.
 async function sendText(to, text) {
   if (!text.trim()) throw new Error("text must not be empty");
   const session = await ensureSession();
-  await requestJson("/messages", {
+  const result = await requestJson("/messages", {
     method: "POST",
     body: { session_token: session.session_token, to, body: text },
   });
   markReachedOut(stateKey, "text");
+  return { delivered: result?.delivered !== false, notice: result?.notice || "" };
 }
 
 async function requestJson(path, { method = "GET", body, timeoutMs = 30_000 } = {}) {

@@ -12,59 +12,45 @@ integrations for the **Call Me** iOS app (formerly AI Phone).
 
 
 
-## Quick Start (`curl` API)
-
 ## 1. Get the app
 
-You need the app to receive a fake phone number. No registration, no email nothing. Just a phone number and an HTTP request.
-
 **[Call Me on the App Store](https://serdaroztetik.com/aiphone/go/readme)** — free.
-Open it, tap *Agree & Continue*, and it shows your personal **Call Me
-number**: 10 digits, and all an agent needs to reach you.
+No registration, no email. Open it, tap *Agree & Continue*, and it shows your
+personal **Call Me number**: 10 digits, and all an agent needs to reach you.
 
 Already in a terminal with the CLI? `callme qr` prints a scannable QR code for
-that link, and `callme setup` prints these steps for you.
+that link.
 
-To make a call or send a text directly using `curl` without CLI or plugins:
+## 2. Ring your phone — one command, nothing installed
 
 ```bash
-# 1. Register a session (label sets the caller/thread name shown on the iPhone)
-TOKEN=$(curl -s -X POST https://serdaroztetik.com/aiphone/sessions \
-  -H "Content-Type: application/json" \
-  -d '{"label": "Deploy Bot"}' | jq -r .session_token)
-
-# (Optional) Update caller label on an existing session token:
-curl -s -X POST https://serdaroztetik.com/aiphone/sessions/label \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"session_token\": \"$TOKEN\",
-    \"label\": \"Staging Release Bot\"
-  }"
-
-# 2. Ring phone & wait for spoken answer (blocks until answered)
-curl -s -X POST https://serdaroztetik.com/aiphone/calls \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"session_token\": \"$TOKEN\",
-    \"to\": \"<10_DIGIT_PHONE_NUMBER>\",
-    \"text\": \"Should I proceed with deployment?\",
-    \"timeout_s\": 300
-  }"
-# Output: {"status":"completed","transcript":"Yes, go ahead"}
-
-# 3. Send a text notification
-curl -s -X POST https://serdaroztetik.com/aiphone/messages \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"session_token\": \"$TOKEN\",
-    \"to\": \"<10_DIGIT_PHONE_NUMBER>\",
-    \"body\": \"Task finished successfully.\"
-  }"
+curl -sS https://serdaroztetik.com/aiphone/ring \
+  -H 'content-type: application/json' \
+  -d '{"to":"<YOUR_10_DIGIT_NUMBER>","text":"Should I deploy to prod?"}'
+# rings your iPhone, blocks until you answer, then:
+# {"status":"completed","transcript":"Yes, go ahead"}
 ```
 
+That is the whole product. No token, no signup, no plugin — give that line to
+any agent that can run a shell command and it can reach you.
+
+Just notify instead of asking? Same shape, `/text` with a `body`:
+
+```bash
+curl -sS https://serdaroztetik.com/aiphone/text \
+  -H 'content-type: application/json' \
+  -d '{"to":"<YOUR_10_DIGIT_NUMBER>","body":"Migration finished."}'
+```
+
+Add `"from":"Deploy Bot"` to either one to name the thread on your phone —
+repeat calls with the same name stay in one conversation. `/ring` also takes
+`"timeout_s"` (default 300) and returns a `session_token` you can use on the
+full API (`/calls`, `/messages`, `/sessions/events` for replies) if you ever
+want more than one-shot sends.
 
 
-## 2. Connect Claude Code (recommended)
+
+## 3. Optional: connect Claude Code for everyday use
 
 claude code folder also includes hooks for claude to call you after long-running sessions.
 
@@ -138,7 +124,7 @@ plugin's config field when prompted — same result.
 Two levers afterwards: `callme remind off` stops the every-session reminder, and
 blocking a thread in the app mutes it without touching any config.
 
-## 3. Any other agent (Codex, scripts, cron jobs, …)
+## 4. Any other agent (Codex, scripts, cron jobs, …)
 
 Use the standalone skill in [`skill/`](skill/). It's a single bash+curl CLI:
 
@@ -156,7 +142,7 @@ directly — it teaches the full flow (setup, pair, call, text, listen, title).
 
 ## Teach your agent
 
-The setup in step 2 writes this for you. If you'd rather do it by hand, append it
+The setup in step 3 writes this for you. If you'd rather do it by hand, append it
 to your `CLAUDE.md` / `AGENTS.md`:
 
 ```markdown

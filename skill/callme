@@ -112,14 +112,17 @@ do_pair() {
   fi
 
   # No answer, or the call failed outright. Never redial — a declined call means stop.
-  if do_text "$n" "Paired ✅ — this AI session can now text and call you." >/dev/null 2>&1; then
+  local why
+  if why=$(do_text "$n" "Paired ✅ — this AI session can now text and call you." 2>&1); then
     echo "sent a confirmation text instead. Ask whether it arrived; if it didn't, the"
     echo "number is wrong — re-pair with the right one rather than retrying."
     return 0
   fi
   echo "callme pair: stored $(display "$n"), but NOTHING reached the phone — neither the" >&2
-  echo "call nor a text. The number is probably wrong; ask them to read it off the app" >&2
-  echo "home screen again. Do not report setup as finished." >&2
+  echo "call nor a text:" >&2
+  echo "  ${why:-no detail from the server}" >&2
+  echo "Either the number is wrong (ask them to read it off the app home screen again)" >&2
+  echo "or Call Me notifications are off on that phone. Do not report setup as finished." >&2
   exit 7
 }
 
@@ -382,9 +385,17 @@ do_text() {
   if [ $# -ge 2 ]; then to=$(norm "$1"); text="$2"; else to=$(require_number); text="${1:-}"; fi
   valid_number "$to" || { echo "callme text: bad recipient '$1'" >&2; exit 6; }
   [ -n "$text" ] || usage
-  curl -sfS -X POST "$API/messages" -H 'content-type: application/json' \
+  local resp
+  resp=$(curl -sfS -X POST "$API/messages" -H 'content-type: application/json' \
     -d "$(jq -cn --arg t "$(conf session_token)" --arg to "$to" --arg b "$text" \
-      '{session_token:$t, to:$to, body:$b}')" > /dev/null
+      '{session_token:$t, to:$to, body:$b}')")
+  # A 2xx only means the server stored it. A phone with notifications off shows
+  # nothing, so "sent" alone would be a lie — say so and exit non-zero, which is
+  # what callers (pair's fallback) branch on. Older servers omit `delivered`.
+  if [ "$(echo "$resp" | jq -r '.delivered // true')" = "false" ]; then
+    echo "sent, but NOT shown on their phone: $(echo "$resp" | jq -r '.notice // ""')" >&2
+    return 7
+  fi
   echo "sent"
 }
 

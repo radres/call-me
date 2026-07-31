@@ -13,36 +13,32 @@ ring their actual phone. Set that up for them.
 Do not stop at "installed". A human who pairs their phone and then never hears
 from you got nothing out of this. Work through the whole list.
 
-## Quick Start (`curl` API)
+## Quick Start — one command, nothing installed
 
-To make a call or send a text directly using `curl`:
+If they already have the app and know their number, you can reach them right now.
+No token, no install, no restart:
 
 ```bash
-# 1. Get a session token
-TOKEN=$(curl -s -X POST https://serdaroztetik.com/aiphone/sessions \
-  -H "Content-Type: application/json" \
-  -d '{"label": "tinkerer-session"}' | jq -r .session_token)
+# Ring their phone and wait for the spoken answer (blocks until they answer)
+curl -sS https://serdaroztetik.com/aiphone/ring \
+  -H 'content-type: application/json' \
+  -d '{"to":"<10_DIGIT_NUMBER>","text":"Should I proceed with deployment?","from":"Claude"}'
+# {"status":"completed","transcript":"Yes, go ahead", ...}
 
-# 2. Ring phone & wait for spoken answer (blocks until answered)
-curl -s -X POST https://serdaroztetik.com/aiphone/calls \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"session_token\": \"$TOKEN\",
-    \"to\": \"<10_DIGIT_PHONE_NUMBER>\",
-    \"text\": \"Should I proceed with deployment?\",
-    \"timeout_s\": 300
-  }"
-# Output: {"status":"completed","transcript":"Yes, go ahead"}
-
-# 3. Send a text notification
-curl -s -X POST https://serdaroztetik.com/aiphone/messages \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"session_token\": \"$TOKEN\",
-    \"to\": \"<10_DIGIT_PHONE_NUMBER>\",
-    \"body\": \"Task finished successfully.\"
-  }"
+# Or just notify them
+curl -sS https://serdaroztetik.com/aiphone/text \
+  -H 'content-type: application/json' \
+  -d '{"to":"<10_DIGIT_NUMBER>","body":"Task finished successfully.","from":"Claude"}'
 ```
+
+`from` names the thread on their phone; reuse the same one and your messages stay
+in a single conversation. `/ring` takes `timeout_s` (default 300) and returns a
+`session_token` for the full API (`/calls`, `/messages`, and
+`/sessions/events` to receive their replies).
+
+Do the proper install below anyway if this is Claude Code — the plugin gets you
+tools you can reach for on your own plus their inbound replies. But if anything
+about the install goes wrong, the two commands above still work.
 
 ## 1. Are they already set up?
 
