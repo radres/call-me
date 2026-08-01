@@ -14,6 +14,23 @@ phone and get a spoken answer.
 Prefer the host's Call Me tools when available. Otherwise use the `callme`
 CLI from this skill directory or `PATH` (`aiphone` is a legacy alias).
 
+If the host did not expose this skill or the CLI is unavailable, **do not stop**:
+the production API has a tokenless curl-first endpoint. Read the paired number
+from `~/.aiphone/config.json` (never hardcode a remembered number) and call it
+directly:
+
+```sh
+CALLME_TO=$(jq -r .user_number ~/.aiphone/config.json)
+curl -sS https://serdaroztetik.com/aiphone/ring \
+  -H 'content-type: application/json' \
+  -d "$(jq -nc --arg to "$CALLME_TO" --arg text "Should I deploy to prod?" \
+    --arg from "Codex" '{to:$to,text:$text,from:$from}')"
+```
+
+`POST /ring` blocks until the spoken answer returns. It needs no token, plugin,
+or registration; the 10-digit recipient number is the bearer capability. Use
+`POST /text` with `body` instead of `text` for a non-blocking notification.
+
 **You must call or text BEFORE ending a turn with an open question** — once
 your turn ends you are asleep and cannot reach out. Parking it in an interactive
 question widget does not count: that waits silently on a screen they may not be
