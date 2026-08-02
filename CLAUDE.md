@@ -1,8 +1,6 @@
 # Call Me
 
-While promoted in Claude Code forums, call me does not require LLMs at all. It is simply an http endpoint where you can call with `call-me cli` like `call-me "hello, how are you"` then you get an answer back. This is extremely simple for agents to learn an incorporate it into their workflow.
-
-You do not need to keep telling agent `/call-me`, just tell it to install the stop hooks from this repo. Then at the end of each conversation it decides to call you right away, or maybe even spawn monitors.
+Call me app is an app that assigns a Voip number to your phone for agents or services to call by text. Text is converted in a server to voice so one can listen and answer even while driving or running.
 
 # Call Me — instructions for the agent reading this repo
 
