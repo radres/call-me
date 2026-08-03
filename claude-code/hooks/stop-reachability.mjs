@@ -27,6 +27,11 @@
 // on a shared machine it could ring a stranger) and was deleted for it. A
 // reminder cannot ring the wrong person.
 //
+// The model can also arm the window itself with the `wait_for_answer` tool, and
+// that beats everything here: it knows whether it parked a question and how long
+// the answer is worth waiting for, where this file can only pattern-match its
+// prose. When such an arm is live the hook does nothing at all.
+//
 // Opt out entirely with CALLME_NO_STOP_REMINDER=1.
 // Debounce (default 15 min per session) via CALLME_STOP_REMINDER_DEBOUNCE=<seconds>.
 // Grace period via CALLME_ANSWER_GRACE=<seconds> (0 or CALLME_NO_ANSWER_WAIT=1
@@ -41,13 +46,16 @@ import {
   clearWaiter,
   hookStampPath,
   isValidNumber,
+  modelArmed,
   reachStampPath,
+  readWaiter,
   resolveUserNumber,
   stampFresh,
   stateDir,
   stateKey,
   touchStamp,
   waiterAlive,
+  waiterLapsed,
 } from "../lib/callme-config.mjs";
 
 const DEBOUNCE_S = numberFromEnv("CALLME_STOP_REMINDER_DEBOUNCE", 900);
@@ -111,6 +119,21 @@ async function main() {
   if (!isValidNumber(resolveUserNumber({ projectDir: cwd || undefined }).number)) return;
 
   const key = stampKey(sessionId, cwd);
+
+  // An arm the MODEL made outranks everything below it. It called
+  // wait_for_answer because it knows it parked a question and how long the
+  // answer is worth waiting for; the pattern list further down is a guess about
+  // the same thing. Without this the guess WINS and silently deletes the arm:
+  // looksParked() is false for plenty of real parked questions, and the very
+  // next branch clears the waiter.
+  const armed = readWaiter(key);
+  if (modelArmed(armed)) {
+    if (waiterAlive(key) && !waiterLapsed(armed)) return;
+    // Either nobody is timing the window or it already closed unheard, so the
+    // explicit arm cannot deliver what it promised. Drop it and fall through to
+    // the heuristic backstop rather than leaving a dead file behind.
+    clearWaiter(key);
+  }
 
   if (!looksParked(input.last_assistant_message)) {
     // This turn parked nothing, so a waiter armed by an earlier turn is stale —

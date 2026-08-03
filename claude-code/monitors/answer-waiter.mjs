@@ -28,12 +28,14 @@
 import {
   clearWaiter,
   hookStampPath,
+  modelArmed,
   reachStampPath,
   readJson,
   readWaiter,
   stateKey,
   touchStamp,
   waiterHeartbeatPath,
+  waiterLapsed,
   writeJsonPrivate,
 } from "../lib/callme-config.mjs";
 
@@ -78,10 +80,10 @@ function tick() {
   const armed = readWaiter(KEY);
   if (!armed) return;
 
+  if (!waiterLapsed(armed)) return;
+
   const waitedMs = Date.now() - armed.armed_at;
   const graceMs = Math.max(0, Number(armed.grace_s) || 0) * 1_000;
-  if (waitedMs < graceMs) return;
-
   clearWaiter(KEY);
   if (waitedMs > graceMs + STALE_MS) return;
 
@@ -105,9 +107,15 @@ function escalation(armed, waitedMs) {
   const asked = armed.question
     ? ` The open question was: "${armed.question}".`
     : "";
+  // A window the model asked for is a promise being kept, not a guess being
+  // acted on, so say so — it is the difference between "you asked to be woken"
+  // and "something noticed a question in your last message".
+  const why = modelArmed(armed)
+    ? `The window you asked to wait has closed: no answer at the keyboard for ${minutes} min.`
+    : `Your human has not answered at the keyboard for ${minutes} min, and your last turn ` +
+      `ended on a question that is still open.`;
   return (
-    `Your human has not answered at the keyboard for ${minutes} min, and your last turn ` +
-    `ended on a question that is still open.${asked} They are away — reach them on their ` +
+    `${why}${asked} They are away — reach them on their ` +
     `phone now with the Call Me skill: call if the answer is blocking or time-sensitive, ` +
     `text if it can wait. Do not ask again in the terminal; that is what they just missed. ` +
     `If the question no longer matters, say so in one line and stop.`

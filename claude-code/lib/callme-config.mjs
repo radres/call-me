@@ -105,7 +105,7 @@ export function reachStampPath(stateKey) {
 // wakes the model so IT can dial. Hooks remind, models dial — arming keeps that
 // rule intact while adding the wait the rule used to skip.
 
-/** The armed waiter for one session: {armed_at, grace_s, question}. */
+/** The armed waiter for one session: {armed_at, grace_s, question, armed_by}. */
 export function awaitPath(stateKey) {
   return join(stateDir(), `claude-await-${stateKey}.json`);
 }
@@ -124,12 +124,22 @@ export function waiterAlive(stateKey, maxAgeS = 45) {
   return stampFresh(waiterHeartbeatPath(stateKey), maxAgeS);
 }
 
-export function armWaiter(stateKey, { question = "", graceS } = {}) {
+/**
+ * `armedBy` records WHO decided to wait, and the two are not equal:
+ *
+ *   "hook"  — the Stop hook guessed from the shape of the final message. A
+ *             heuristic, so every later Stop re-decides and may drop it.
+ *   "model" — the model called the wait_for_answer tool. It knows whether it
+ *             actually parked something and how long the answer is worth waiting
+ *             for, so nothing downstream second-guesses it (see the Stop hook).
+ */
+export function armWaiter(stateKey, { question = "", graceS, armedBy = "hook" } = {}) {
   try {
     writeJsonPrivate(awaitPath(stateKey), {
       armed_at: Date.now(),
       grace_s: Number.isFinite(graceS) ? graceS : answerGraceSeconds(),
       question: String(question || "").replace(/\s+/g, " ").trim().slice(0, 400),
+      armed_by: armedBy === "model" ? "model" : "hook",
     });
     return true;
   } catch {
@@ -140,6 +150,34 @@ export function armWaiter(stateKey, { question = "", graceS } = {}) {
 export function readWaiter(stateKey) {
   const armed = readJson(awaitPath(stateKey));
   return Number.isFinite(armed?.armed_at) ? armed : null;
+}
+
+/** Did the model arm this window itself, rather than the hook guessing? */
+export function modelArmed(armed) {
+  return armed?.armed_by === "model";
+}
+
+/**
+ * Has the grace window closed? Shared so the hook and the monitor cannot drift
+ * on the one comparison that decides whether a phone rings.
+ */
+export function waiterLapsed(armed, nowMs = Date.now()) {
+  if (!Number.isFinite(armed?.armed_at)) return true;
+  return nowMs - armed.armed_at >= Math.max(0, Number(armed.grace_s) || 0) * 1_000;
+}
+
+/**
+ * Bounds for a model-chosen wait. The floor stops a 1s "wait" that is really
+ * just an instant page; the ceiling keeps the window inside the monitor's own
+ * staleness guard, so an armed waiter always either fires or is dropped as old.
+ */
+export const MODEL_WAIT_MIN_S = 15;
+export const MODEL_WAIT_MAX_S = 3_600;
+
+export function clampModelWait(seconds) {
+  const parsed = Number.parseInt(seconds ?? "", 10);
+  if (!Number.isFinite(parsed)) return answerGraceSeconds();
+  return Math.min(MODEL_WAIT_MAX_S, Math.max(MODEL_WAIT_MIN_S, parsed));
 }
 
 /** Disarm: the human answered, the session ended, or the turn parked nothing. */

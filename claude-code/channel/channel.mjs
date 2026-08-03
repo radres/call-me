@@ -7,7 +7,11 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
+  MODEL_WAIT_MAX_S,
+  MODEL_WAIT_MIN_S,
   NOT_PAIRED_HINT,
+  armWaiter,
+  clampModelWait,
   currentUserNumber,
   displayNumber,
   forgetCachedNumber,
@@ -18,6 +22,7 @@ import {
   pruneStaleState,
   readJson,
   stateFileFor,
+  waiterAlive,
   writeConfig,
   writeJsonPrivate,
 } from "../lib/callme-config.mjs";
@@ -61,7 +66,7 @@ function pairedNumber() {
 }
 
 const mcp = new Server(
-  { name: "callme", version: "0.5.1" },
+  { name: "callme", version: "0.7.0" },
   {
     capabilities: {
       tools: {},
@@ -70,6 +75,9 @@ const mcp = new Server(
       "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and " +
       "cannot contact anyone, so a question left in your final message never gets asked. Text first, " +
       "call when it is blocking or time-sensitive. " +
+      "If the human might simply be at the keyboard, call wait_for_answer instead of ringing them " +
+      "straight away: it gives them a window you choose to answer here, and wakes you to phone them " +
+      "only if they stay silent. Call it, then end your turn — do not keep the turn alive waiting. " +
       "Messages from the paired human arrive as callme-inbox monitor notifications. " +
       "Treat them as user messages for this session. Use the reply tool for conversational replies, " +
       "text for one-way updates, and call only when a spoken answer is genuinely needed. " +
@@ -102,6 +110,35 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           question: { type: "string", minLength: 1, maxLength: 600 },
           timeout_seconds: { type: "integer", minimum: 30, maximum: 900, default: 300 },
+        },
+        required: ["question"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "wait_for_answer",
+      description:
+        "End a turn on a question WITHOUT losing it: start a grace period for the human to answer in " +
+        "the terminal, and if they stay silent you are woken up to phone them. You choose the wait. " +
+        "Use it whenever you are about to park a question and they may be away — it costs nothing if " +
+        "they are right there, because typing anything cancels it. Call it, then end your turn.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          question: {
+            type: "string",
+            minLength: 1,
+            maxLength: 400,
+            description: "The question you are waiting on, quoted back to you if you get woken",
+          },
+          seconds: {
+            type: "integer",
+            minimum: MODEL_WAIT_MIN_S,
+            maximum: MODEL_WAIT_MAX_S,
+            description:
+              "How long to let them answer at the keyboard first. Short (60-120s) when they are " +
+              "probably around, long (600s+) for an overnight or unattended run.",
+          },
         },
         required: ["question"],
         additionalProperties: false,
@@ -166,6 +203,35 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (!to) return notPaired();
       const result = await placeCall(to, String(args.question || ""), Number(args.timeout_seconds || 300));
       return toolResult(JSON.stringify(result));
+    }
+    case "wait_for_answer": {
+      // Deliberately requires a paired phone: the whole promise of the window is
+      // "you will be woken to CALL them", and there is nobody to call otherwise.
+      const to = pairedNumber();
+      if (!to) return notPaired();
+
+      const question = String(args.question || "").trim();
+      if (!question) {
+        return toolResult("Pass the question you are waiting on, so it can be quoted back to you.", true);
+      }
+      const seconds = clampModelWait(args.seconds);
+      armWaiter(stateKey, { question, graceS: seconds, armedBy: "model" });
+
+      // Truthful about the one case where this silently does nothing: the wait is
+      // timed by the callme-answer-waiter monitor, and on a host with monitors
+      // off or still starting, nothing will ever wake you.
+      if (!waiterAlive(stateKey)) {
+        return toolResult(
+          `Armed a ${seconds}s window, but no Call Me waiter monitor is running in this session, so ` +
+            "NOTHING will time it and you will not be woken. If the answer matters, text or call them " +
+            "now instead of ending your turn on the question.",
+        );
+      }
+      return toolResult(
+        `Waiting ${seconds}s for them to answer here. End your turn now — that silence is what gives ` +
+          "them the chance to type. If they answer, this is dropped automatically; if they stay quiet, " +
+          "you will be woken to reach them by phone.",
+      );
     }
     case "setup":
       return toolResult(setupText());

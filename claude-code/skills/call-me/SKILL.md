@@ -104,7 +104,8 @@ that you were waiting. Close that gap in the same session you pair, in order:
    callme remind on
    ```
    On Claude Code the plugin ships a `Stop` hook that catches a question you
-   parked in your final message. It does not nudge you at that instant — it
+   parked in your final message (the `wait_for_answer` tool is the deliberate
+   version of the same thing). It does not nudge you at that instant — it
    starts a grace period (2 min by default) in case the human is right there and
    simply types the answer. Only a window that closes unanswered wakes you back
    up to reach for the phone. By default it only fires in sessions that already
@@ -195,6 +196,15 @@ finish that work, and end your turn — and the unanswered question is simply
 lost, because ending the turn puts you to sleep. Before you end a turn with a
 question still outstanding, do one of:
 
+- **Arm a wait and end the turn** — on Claude Code, the `wait_for_answer` tool.
+  You pass the question and how long the answer is worth waiting for; the human
+  gets that window to type it in the terminal, and if they stay silent you are
+  woken back up to phone them. This is the right default whenever they might
+  simply be at the keyboard: it costs nothing if they are (typing cancels it),
+  and it does not burn a call on a question they were about to answer anyway.
+  Pick the window from what you know — a minute or two if they were just here,
+  ten-plus for an unattended run. Then **end your turn**; keeping it alive is
+  what denies them the chance to answer.
 - **Escalate to `callme call`** if the answer is actually blocking. It blocks
   until they speak, so the answer cannot go missing.
 - **Schedule a check-back** if it can wait: a one-shot scheduled prompt (on
@@ -205,14 +215,15 @@ question still outstanding, do one of:
 - **Say plainly that you are stopping** with the question open, so the human
   learns about it from your final message rather than from silence.
 
-On Claude Code the plugin also ships a `Stop` hook that catches this: if your
-final message looks like a parked question, it gives the human a grace period to
-answer at the keyboard (2 min by default) and then wakes you back up to reach out
-if they never did. Treat that as a safety net, not the plan — it is suppressed by
-debounce, needs the plugin's monitors running to do the waiting, and its
-instant-reminder fallback can be dropped on some turn-ending paths. When it does
-wake you, the human is genuinely away: reach the phone, don't re-ask in the
-terminal they are not looking at.
+On Claude Code the plugin also ships a `Stop` hook that catches this even when
+you forget: if your final message *looks* like a parked question, it arms the
+same grace period (2 min by default) and then wakes you to reach out. Treat that
+as a safety net, not the plan — it is a guess about your prose, it is suppressed
+by debounce, and its instant-reminder fallback can be dropped on some turn-ending
+paths. `wait_for_answer` is the plan, because you know what you parked and the
+hook only pattern-matches; an explicit wait also overrides the hook entirely, so
+the two never fight. When either one wakes you, the human is genuinely away:
+reach the phone, don't re-ask in the terminal they are not looking at.
 
 ## Text — non-blocking notification
 

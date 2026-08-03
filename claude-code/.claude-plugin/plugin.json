@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "call-me",
   "displayName": "Call Me",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Call, text, and receive replies from the Call Me iOS app. Pair once (any session) and every Claude on this machine reaches the same phone.",
   "author": {
     "name": "Serdar Oztetik"

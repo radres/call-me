@@ -15490,6 +15490,49 @@ function stateFileFor({ projectDir } = {}) {
 function reachStampPath(stateKey2) {
   return join(stateDir(), `claude-reach-${stateKey2}.json`);
 }
+function awaitPath(stateKey2) {
+  return join(stateDir(), `claude-await-${stateKey2}.json`);
+}
+function waiterHeartbeatPath(stateKey2) {
+  return join(stateDir(), `claude-waiter-${stateKey2}.json`);
+}
+function waiterAlive(stateKey2, maxAgeS = 45) {
+  return stampFresh(waiterHeartbeatPath(stateKey2), maxAgeS);
+}
+function armWaiter(stateKey2, { question = "", graceS, armedBy = "hook" } = {}) {
+  try {
+    writeJsonPrivate(awaitPath(stateKey2), {
+      armed_at: Date.now(),
+      grace_s: Number.isFinite(graceS) ? graceS : answerGraceSeconds(),
+      question: String(question || "").replace(/\s+/g, " ").trim().slice(0, 400),
+      armed_by: armedBy === "model" ? "model" : "hook"
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+var MODEL_WAIT_MIN_S = 15;
+var MODEL_WAIT_MAX_S = 3600;
+function clampModelWait(seconds) {
+  const parsed = Number.parseInt(seconds ?? "", 10);
+  if (!Number.isFinite(parsed)) return answerGraceSeconds();
+  return Math.min(MODEL_WAIT_MAX_S, Math.max(MODEL_WAIT_MIN_S, parsed));
+}
+function answerGraceSeconds() {
+  const env = Number.parseInt(process.env.CALLME_ANSWER_GRACE ?? "", 10);
+  if (Number.isFinite(env) && env >= 0) return env;
+  const stored = readConfig()?.answer_grace_s;
+  if (Number.isFinite(stored) && stored >= 0) return stored;
+  return 120;
+}
+function stampFresh(file, seconds) {
+  try {
+    return Date.now() - statSync(file).mtimeMs < seconds * 1e3;
+  } catch {
+    return false;
+  }
+}
 function markReachedOut(stateKey2, kind) {
   try {
     writeJsonPrivate(reachStampPath(stateKey2), { at: Date.now(), kind });
@@ -15610,12 +15653,12 @@ function pairedNumber() {
   return currentUserNumber().number;
 }
 var mcp = new Server(
-  { name: "callme", version: "0.5.1" },
+  { name: "callme", version: "0.7.0" },
   {
     capabilities: {
       tools: {}
     },
-    instructions: "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number. pair RINGS their phone to prove the loop, so tell them in one line that it is about to ring before you call pair; it blocks until they answer or it times out."
+    instructions: "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. If the human might simply be at the keyboard, call wait_for_answer instead of ringing them straight away: it gives them a window you choose to answer here, and wakes you to phone them only if they stay silent. Call it, then end your turn \u2014 do not keep the turn alive waiting. Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number. pair RINGS their phone to prove the loop, so tell them in one line that it is about to ring before you call pair; it blocks until they answer or it times out."
   }
 );
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -15638,6 +15681,29 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           question: { type: "string", minLength: 1, maxLength: 600 },
           timeout_seconds: { type: "integer", minimum: 30, maximum: 900, default: 300 }
+        },
+        required: ["question"],
+        additionalProperties: false
+      }
+    },
+    {
+      name: "wait_for_answer",
+      description: "End a turn on a question WITHOUT losing it: start a grace period for the human to answer in the terminal, and if they stay silent you are woken up to phone them. You choose the wait. Use it whenever you are about to park a question and they may be away \u2014 it costs nothing if they are right there, because typing anything cancels it. Call it, then end your turn.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          question: {
+            type: "string",
+            minLength: 1,
+            maxLength: 400,
+            description: "The question you are waiting on, quoted back to you if you get woken"
+          },
+          seconds: {
+            type: "integer",
+            minimum: MODEL_WAIT_MIN_S,
+            maximum: MODEL_WAIT_MAX_S,
+            description: "How long to let them answer at the keyboard first. Short (60-120s) when they are probably around, long (600s+) for an overnight or unattended run."
+          }
         },
         required: ["question"],
         additionalProperties: false
@@ -15693,6 +15759,24 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (!to) return notPaired();
       const result = await placeCall(to, String(args.question || ""), Number(args.timeout_seconds || 300));
       return toolResult(JSON.stringify(result));
+    }
+    case "wait_for_answer": {
+      const to = pairedNumber();
+      if (!to) return notPaired();
+      const question = String(args.question || "").trim();
+      if (!question) {
+        return toolResult("Pass the question you are waiting on, so it can be quoted back to you.", true);
+      }
+      const seconds = clampModelWait(args.seconds);
+      armWaiter(stateKey, { question, graceS: seconds, armedBy: "model" });
+      if (!waiterAlive(stateKey)) {
+        return toolResult(
+          `Armed a ${seconds}s window, but no Call Me waiter monitor is running in this session, so NOTHING will time it and you will not be woken. If the answer matters, text or call them now instead of ending your turn on the question.`
+        );
+      }
+      return toolResult(
+        `Waiting ${seconds}s for them to answer here. End your turn now \u2014 that silence is what gives them the chance to type. If they answer, this is dropped automatically; if they stay quiet, you will be woken to reach them by phone.`
+      );
     }
     case "setup":
       return toolResult(setupText());
