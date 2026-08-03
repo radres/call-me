@@ -14,6 +14,23 @@ phone and get a spoken answer.
 Prefer the host's Call Me tools when available. Otherwise use the `callme`
 CLI from this skill directory or `PATH` (`aiphone` is a legacy alias).
 
+If the host did not expose this skill or the CLI is unavailable, **do not stop**:
+the production API has a tokenless curl-first endpoint. Read the paired number
+from `~/.aiphone/config.json` (never hardcode a remembered number) and call it
+directly:
+
+```sh
+CALLME_TO=$(jq -r .user_number ~/.aiphone/config.json)
+curl -sS https://serdaroztetik.com/aiphone/ring \
+  -H 'content-type: application/json' \
+  -d "$(jq -nc --arg to "$CALLME_TO" --arg text "Should I deploy to prod?" \
+    --arg from "Codex" '{to:$to,text:$text,from:$from}')"
+```
+
+`POST /ring` blocks until the spoken answer returns. It needs no token, plugin,
+or registration; the 10-digit recipient number is the bearer capability. Use
+`POST /text` with `body` instead of `text` for a non-blocking notification.
+
 **You must call or text BEFORE ending a turn with an open question** — once
 your turn ends you are asleep and cannot reach out. Parking it in an interactive
 question widget does not count: that waits silently on a screen they may not be
@@ -86,12 +103,15 @@ that you were waiting. Close that gap in the same session you pair, in order:
    ```sh
    callme remind on
    ```
-   On Claude Code the plugin ships a `Stop` hook that reminds you, at the moment
-   a turn ends, when your last message looks like a parked question. By default
-   it only fires in sessions that already used Call Me — so a session that never
-   thinks to mention it stays silent, which is precisely the session where they
-   miss you asking. `remind on` makes it fire in every session. (`callme remind
-   off` / `status` to change or check it later.)
+   On Claude Code the plugin ships a `Stop` hook that catches a question you
+   parked in your final message. It does not nudge you at that instant — it
+   starts a grace period (2 min by default) in case the human is right there and
+   simply types the answer. Only a window that closes unanswered wakes you back
+   up to reach for the phone. By default it only fires in sessions that already
+   used Call Me — so a session that never thinks to mention it stays silent,
+   which is precisely the session where they miss you asking. `remind on` makes
+   it fire in every session. (`callme remind off` / `status` to change or check
+   it later; `callme grace <seconds>` changes the window, `0` = no wait.)
 3. **Write the standing rule into their instruction file** — `~/.claude/CLAUDE.md`
    for Claude Code, `AGENTS.md` for Codex and others. **Read it first and append;
    never overwrite.** This is what carries the behaviour into sessions that have
@@ -114,8 +134,10 @@ that you were waiting. Close that gap in the same session you pair, in order:
    ```
    Ask whether it arrived. If nothing lands either way the number is wrong:
    re-pair. Don't retry blindly.
-5. **Tell them how to undo it**: `callme remind off`, and blocking the thread in
-   the app mutes it without touching any config.
+5. **Tell them how to undo or tune it**: `callme remind off`, `callme grace 300`
+   to be left alone at the keyboard longer before the phone gets involved (`0`
+   rings the moment a turn ends), and blocking the thread in the app mutes it
+   without touching any config.
 
 ## Inbound messages
 
@@ -184,9 +206,13 @@ question still outstanding, do one of:
   learns about it from your final message rather than from silence.
 
 On Claude Code the plugin also ships a `Stop` hook that catches this: if your
-final message looks like a parked question it reminds you, once, before you go
-idle. Treat that as a safety net, not the plan — it is suppressed by debounce
-and can be dropped on some turn-ending paths.
+final message looks like a parked question, it gives the human a grace period to
+answer at the keyboard (2 min by default) and then wakes you back up to reach out
+if they never did. Treat that as a safety net, not the plan — it is suppressed by
+debounce, needs the plugin's monitors running to do the waiting, and its
+instant-reminder fallback can be dropped on some turn-ending paths. When it does
+wake you, the human is genuinely away: reach the phone, don't re-ask in the
+terminal they are not looking at.
 
 ## Text — non-blocking notification
 

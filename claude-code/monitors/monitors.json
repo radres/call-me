@@ -4,5 +4,11 @@
     "command": "node \"${CLAUDE_PLUGIN_ROOT}/monitors/inbound.mjs\"",
     "description": "Messages and voice transcripts from the paired Call Me phone",
     "when": "on-skill-invoke:call-me"
+  },
+  {
+    "name": "callme-answer-waiter",
+    "command": "node \"${CLAUDE_PLUGIN_ROOT}/monitors/answer-waiter.mjs\"",
+    "description": "Waits out the grace period after a turn ends on an open question, then wakes the model to phone the human",
+    "when": "always"
   }
 ]

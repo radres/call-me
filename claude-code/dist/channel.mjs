@@ -15463,7 +15463,7 @@ import {
   writeFileSync
 } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 var CONFIG_VERSION = 1;
 function normalizeNumber(value) {
   return String(value ?? "").replace(/\D/g, "");
@@ -15579,7 +15579,7 @@ function pruneStaleState({ days = 30 } = {}) {
   let removed = 0;
   try {
     for (const name of readdirSync(stateDir())) {
-      if (!/^claude-(session|monitor|channel|reach)-.*\.json$/.test(name)) continue;
+      if (!/^claude-(session|monitor|channel|reach|await|waiter)-.*\.json$/.test(name)) continue;
       const file = join(stateDir(), name);
       try {
         if (statSync(file).mtimeMs < cutoff) {
@@ -15682,8 +15682,11 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "text": {
       const to = pairedNumber();
       if (!to) return notPaired();
-      await sendText(to, String(args.text || ""));
-      return toolResult("sent");
+      const { delivered, notice } = await sendText(to, String(args.text || ""));
+      if (delivered) return toolResult("sent");
+      return toolResult(
+        `sent, but NOT shown on their phone. ${notice} Do not repeat the text expecting a different result \u2014 use call if you need them now.`
+      );
     }
     case "call": {
       const to = pairedNumber();
@@ -15715,7 +15718,15 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
             `Paired with ${displayNumber(number3)} and confirmed by voice. They said: "${result.transcript || ""}". ${shared}`
           );
         }
-        await sendText(number3, "Paired \u2705 \u2014 this Claude session can now text and call you.");
+        const fallback = await sendText(
+          number3,
+          "Paired \u2705 \u2014 this Claude session can now text and call you."
+        );
+        if (!fallback.delivered) {
+          return toolResult(
+            `Paired with ${displayNumber(number3)}, but neither channel reached them: the confirmation call was ${result?.status || "unanswered"} and the fallback text was not shown. ${fallback.notice} ${shared}`
+          );
+        }
         return toolResult(
           `Paired with ${displayNumber(number3)}. The confirmation call was ${result?.status || "unanswered"}, so a text was sent instead \u2014 ask whether it arrived. If it did not, the number is wrong: re-pair with the right one rather than retrying. ${shared}`
         );
@@ -15803,8 +15814,9 @@ function setupText() {
     "   whether it arrived. If nothing lands either way the number is wrong \u2014",
     "   re-pair rather than retrying.",
     "",
-    `E. Tell them how to undo it: \`${cli} remind off\`, and blocking a thread in`,
-    "   the app mutes it.",
+    `E. Tell them how to undo or tune it: \`${cli} remind off\`, \`${cli} grace 300\``,
+    "   to be left alone at the keyboard longer before the phone gets involved",
+    "   (0 = the moment a turn ends), and blocking a thread in the app mutes it.",
     paired.number ? `
 Already paired with ${displayNumber(paired.number)} \u2014 pair again only to change phones.` : ""
   ].join("\n").trimEnd();
@@ -15827,11 +15839,12 @@ async function placeCall(to, question, timeoutS) {
 async function sendText(to, text) {
   if (!text.trim()) throw new Error("text must not be empty");
   const session = await ensureSession();
-  await requestJson("/messages", {
+  const result = await requestJson("/messages", {
     method: "POST",
     body: { session_token: session.session_token, to, body: text }
   });
   markReachedOut(stateKey, "text");
+  return { delivered: result?.delivered !== false, notice: result?.notice || "" };
 }
 async function requestJson(path, { method = "GET", body, timeoutMs = 3e4 } = {}) {
   const response = await fetch(`${api}${path}`, {

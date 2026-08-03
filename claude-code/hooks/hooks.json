@@ -1,5 +1,5 @@
 {
-  "description": "At the moment a turn ends, remind Claude that a question it parked on its human needs a text or a call — the model decides, the hook never dials.",
+  "description": "When a turn ends on a question the human has not answered, start a grace period — and if it closes with no answer, wake Claude to text or call them. The hooks never dial; the model does.",
   "hooks": {
     "Stop": [
       {
@@ -7,6 +7,26 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-reachability.mjs\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/answer-seen.mjs\""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/answer-seen.mjs\""
           }
         ]
       }

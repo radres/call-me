@@ -111,7 +111,7 @@ message and going to sleep. Concretely it sets up:
 |---|---|
 | **`call` / `text` / `reply` tools** | Claude rings your phone or texts it; your spoken answer comes back as text |
 | **Inbound monitor** | Replies you send from the app land in the live Claude session, even hours later |
-| **`Stop` hook** | At the instant a turn ends, if Claude's last message looks like a question it parked on you, it gets reminded to reach out. It reminds — it never dials on its own |
+| **`Stop` hook + answer waiter** | If a turn ends on a question Claude parked on you, you get a grace period (2 min) to just answer in the terminal. Type anything and nothing happens; let it lapse and Claude is woken up to text or call you. The hooks only wake Claude — the decision to dial stays with the model |
 | **`~/.claude/CLAUDE.md` rule** | Carries the behaviour to every session and to hosts with no hook |
 
 The number lands in `~/.aiphone/config.json`, so **every** Claude session on the
@@ -119,8 +119,10 @@ machine reaches your phone, and re-pairing to a new phone takes effect
 immediately without restarting anything. You can also paste the number into the
 plugin's config field when prompted — same result.
 
-Two levers afterwards: `callme remind off` stops the every-session reminder, and
-blocking a thread in the app mutes it without touching any config.
+Levers afterwards: `callme remind off` stops the every-session reminder,
+`callme grace <seconds>` sets how long you get to answer at the keyboard before
+your phone is involved (`0` = immediately), and blocking a thread in the app mutes
+it without touching any config.
 
 ## 4. Any other agent (Codex, scripts, cron jobs, …)
 

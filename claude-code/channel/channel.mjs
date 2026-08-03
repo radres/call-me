@@ -309,8 +309,9 @@ function setupText() {
     "   whether it arrived. If nothing lands either way the number is wrong —",
     "   re-pair rather than retrying.",
     "",
-    `E. Tell them how to undo it: \`${cli} remind off\`, and blocking a thread in`,
-    "   the app mutes it.",
+    `E. Tell them how to undo or tune it: \`${cli} remind off\`, \`${cli} grace 300\``,
+    "   to be left alone at the keyboard longer before the phone gets involved",
+    "   (0 = the moment a turn ends), and blocking a thread in the app mutes it.",
     paired.number ? `\nAlready paired with ${displayNumber(paired.number)} — pair again only to change phones.` : "",
   ]
     .join("\n")

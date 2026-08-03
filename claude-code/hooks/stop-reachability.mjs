@@ -11,6 +11,15 @@
 // decision back to the model with `decision: block` — the model has the context
 // to know whether contact is warranted, a shell script does not.
 //
+// But that instant is TOO EARLY to reach for a phone. Most parked questions are
+// answered by a human who is sitting right there and starts typing two seconds
+// later; ringing them then is worse than useless. So when a waiter monitor is
+// watching this session, the hook stays silent and instead ARMS a grace period
+// (`armWaiter`) — see monitors/answer-waiter.mjs. Typing anything disarms it
+// (hooks/answer-seen.mjs); only a window that closes unanswered escalates, and
+// even then the monitor wakes the MODEL to dial. The instant reminder below is
+// the fallback for when nothing is timing the window.
+//
 // CRITICAL DESIGN RULE: this hook NEVER dials. It resolves the paired number
 // only to check that a phone exists at all, and it never scans other sessions'
 // state to find one. The v0.3.0 Notification hook did both (it rang the phone
@@ -20,15 +29,25 @@
 //
 // Opt out entirely with CALLME_NO_STOP_REMINDER=1.
 // Debounce (default 15 min per session) via CALLME_STOP_REMINDER_DEBOUNCE=<seconds>.
+// Grace period via CALLME_ANSWER_GRACE=<seconds> (0 or CALLME_NO_ANSWER_WAIT=1
+// skips the wait and reminds at once, i.e. the pre-0.6.0 behaviour).
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   alwaysRemind,
+  answerGraceSeconds,
+  armWaiter,
+  clearWaiter,
+  hookStampPath,
   isValidNumber,
   reachStampPath,
   resolveUserNumber,
+  stampFresh,
   stateDir,
+  stateKey,
+  touchStamp,
+  waiterAlive,
 } from "../lib/callme-config.mjs";
 
 const DEBOUNCE_S = numberFromEnv("CALLME_STOP_REMINDER_DEBOUNCE", 900);
@@ -91,13 +110,31 @@ async function main() {
   // No scanning of other sessions. Ever.
   if (!isValidNumber(resolveUserNumber({ projectDir: cwd || undefined }).number)) return;
 
-  if (!looksParked(input.last_assistant_message)) return;
+  const key = stampKey(sessionId, cwd);
+
+  if (!looksParked(input.last_assistant_message)) {
+    // This turn parked nothing, so a waiter armed by an earlier turn is stale —
+    // its question has been answered or dropped. Every Stop re-decides.
+    clearWaiter(key);
+    return;
+  }
 
   // The model already texted or called within this turn — nothing to remind.
   if (reachedOutRecently(sessionId, cwd)) return;
 
-  if (!claimDebounce(sessionId, cwd)) return;
+  if (debounced(key)) return;
 
+  // Preferred path: give the human the grace window and let the waiter monitor
+  // time it. Silent on purpose — the turn has to actually end for them to type.
+  const grace = answerGraceSeconds();
+  if (grace > 0 && process.env.CALLME_NO_ANSWER_WAIT !== "1" && waiterAlive(key)) {
+    armWaiter(key, { question: parkedQuestion(input.last_assistant_message), graceS: grace });
+    return;
+  }
+
+  // Nothing is timing a window (monitors off, unsupported, or the wait is
+  // disabled), so fall back to handing the decision to the model right now.
+  claimDebounce(key);
   process.stdout.write(`${JSON.stringify({ decision: "block", reason: REMINDER })}\n`);
 }
 
@@ -122,11 +159,13 @@ function stateKeyCandidates(sessionId, cwd) {
   return candidates;
 }
 
-/** Stamp key: per Claude session, falling back to the project. */
+/**
+ * Stamp key: per Claude session, falling back to the project. Shared with the
+ * waiter monitor through lib/callme-config.mjs — if these two ever disagree the
+ * hook arms a file nobody reads, so there is exactly one implementation.
+ */
 function stampKey(sessionId, cwd) {
-  if (sessionId) return sessionId;
-  if (cwd) return cwd.replace(/[^A-Za-z0-9]+/g, "-");
-  return "session";
+  return stateKey({ sessionId, projectDir: cwd || undefined });
 }
 
 function reachedOutRecently(sessionId, cwd) {
@@ -136,22 +175,35 @@ function reachedOutRecently(sessionId, cwd) {
 }
 
 /**
- * One reminder per session per debounce window. Writing the stamp is what
- * claims it, so a barrage of question-shaped turns produces a single nudge.
+ * One escalation per session per debounce window, so a barrage of
+ * question-shaped turns produces a single nudge.
+ *
+ * Checking and claiming are separate because the two paths claim at different
+ * moments: an instant reminder claims here, while an armed waiter is silent for
+ * now and the monitor claims the same stamp only if the window actually closes
+ * unanswered. Claiming at arm time would burn the window on a question the human
+ * answered in five seconds.
  */
-function claimDebounce(sessionId, cwd) {
-  const dir = join(stateDir(), "hook-stamps");
-  const stamp = join(dir, `stop-${stampKey(sessionId, cwd)}`);
-  try {
-    if (existsSync(stamp) && Date.now() - statSync(stamp).mtimeMs < DEBOUNCE_S * 1000) {
-      return false;
-    }
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-    writeFileSync(stamp, `${new Date().toISOString()}\n`, { mode: 0o600 });
-    return true;
-  } catch {
-    return false;
-  }
+function debounced(key) {
+  return stampFresh(hookStampPath("stop", key), DEBOUNCE_S);
+}
+
+function claimDebounce(key) {
+  touchStamp(hookStampPath("stop", key));
+}
+
+/**
+ * The one line worth quoting back when the model is woken minutes later: the
+ * last question-shaped line of its own final message.
+ */
+function parkedQuestion(message) {
+  const lines = String(message || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`\n]*`/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.reverse().find((line) => line.endsWith("?")) || lines.at(-1) || "";
 }
 
 /**

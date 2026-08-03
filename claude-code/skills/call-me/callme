@@ -18,6 +18,8 @@ callme — your AI can call its human
   callme number                  show the paired number
   callme remind [on|off|status]  remind EVERY session to reach out before it ends
                                   a turn on an open question (for AFK humans)
+  callme grace [seconds|status]   how long to wait at the keyboard for an answer
+                                  before the phone gets involved (default 120, 0 = at once)
   callme call "text"             RING the phone, speak the text, BLOCK until the
                                   spoken answer comes back (prints transcript)
   callme text "text"             send a text (push notification on the phone)
@@ -154,6 +156,34 @@ do_remind() {
       do_remind status
       ;;
     *) echo "usage: callme remind [on|off|status]" >&2; exit 1;;
+  esac
+}
+
+# Grace period: how long a parked question waits at the keyboard before the
+# Claude Code waiter monitor wakes the model to phone the human. Most questions
+# are answered by someone sitting right there, and ringing them for those is how
+# a reachability feature turns into a nuisance.
+do_grace() {
+  need_jq
+  local current=120
+  [ -f "$USER_CONF" ] && current=$(jq -r '.answer_grace_s // 120' "$USER_CONF")
+  case "${1:-status}" in
+    status)
+      if [ "$current" = "0" ]; then
+        echo "0s — no wait; reach out the moment a turn ends on an open question"
+      else
+        echo "${current}s — wait this long for a keyboard answer, then phone them"
+      fi
+      ;;
+    *[!0-9]*|"") echo "usage: callme grace [seconds|status]  (0 = no wait)" >&2; exit 1;;
+    *)
+      [ -f "$USER_CONF" ] || { echo "pair a phone first: callme pair <number>" >&2; exit 6; }
+      jq --argjson v "$1" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {answer_grace_s:$v, updated_at:$t}' "$USER_CONF" \
+        > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
+      chmod 600 "$USER_CONF"
+      do_grace status
+      ;;
   esac
 }
 
@@ -321,8 +351,10 @@ D. Verify it end to end, don't assume. If the pairing call was answered, this is
        callme text "Setup done — this is what a message from your agent looks like."
    Ask them whether it arrived. If it did not, the number is wrong: re-pair.
 
-E. Tell them the two things they can change later: 'callme remind off' to stop
-   the every-session nudge, and blocking a thread in the app to mute it.
+E. Tell them what they can change later: 'callme remind off' to stop the
+   every-session nudge, 'callme grace 300' to be left alone at the keyboard
+   longer before the phone rings (0 = ring the moment a turn ends), and blocking
+   a thread in the app to mute it.
 EOF
   if valid_number "$n"; then
     echo
@@ -457,6 +489,7 @@ case "$cmd" in
   pair)     [ $# -ge 1 ] || usage; do_pair "$1";;
   unpair)   do_unpair;;
   remind)   do_remind "${1:-status}";;
+  grace)    do_grace "${1:-status}";;
   number)   do_number "${1:-}";;
   register) register "${1:-AI session}";;
   call)     [ $# -ge 1 ] || usage; do_call "$@";;

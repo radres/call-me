@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {
+  clearWaiter,
   currentUserNumber,
   forgetCachedNumber,
   isValidNumber,
@@ -70,6 +71,9 @@ while (!stopping) {
 
     for (const event of response.events) {
       if (!isFromPairedUser(event)) continue;
+      // Answering from the phone IS answering. Disarm the Stop hook's waiter so
+      // it cannot later wake the model to say "they never answered".
+      clearWaiter(stateKey);
       // Claude monitors deliver each stdout line as an inbound notification.
       // Keep the entire instruction on one line; diagnostics belong on stderr.
       process.stdout.write(`${notificationText(event)}\n`);
