@@ -35,14 +35,14 @@ const projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project"
 // bundle of this file and is what .mcp.json actually runs, so a stale bundle ships
 // old wording that looks fixed in source. scripts/check-copy-sync.sh greps both for
 // this literal — mtimes cannot be used, `rsync -a` preserves them.
-const SETUP_COPY_REV = "2026-07-30";
+const SETUP_COPY_REV = "2026-08-09";
 
 // Shorter than the 300s default for a deliberate call: pairing rings a phone that
 // may be in a drawer, and blocking the agent for five minutes to learn that is a
 // bad trade. 90s is long enough to pick up, short enough to fall back to a text.
 const PAIR_CALL_TIMEOUT_S = 90;
 
-// One Call Me session per Claude session: each plugin-enabled Claude gets its
+// One /call-me session per Claude session: each plugin-enabled Claude gets its
 // own number/thread on the phone, so several Claudes can run in one project
 // without racing on shared state. Falls back to per-project state on hosts
 // that don't expose CLAUDE_CODE_SESSION_ID.
@@ -94,7 +94,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "reply",
-      description: "Reply by text to the paired human in the Call Me conversation",
+      description: "Reply by text to the paired human in the /call-me conversation",
       inputSchema: textSchema("Reply text"),
     },
     {
@@ -147,14 +147,14 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "setup",
       description:
-        "Onboarding instructions to show a human who has not set up Call Me yet " +
+        "Onboarding instructions to show a human who has not set up /call-me yet " +
         "(App Store link + how to read their number back). Use this instead of guessing a number.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       name: "pair",
       description:
-        "Remember the 10-digit Call Me number the human read out of the app, then RING that phone " +
+        "Remember the 10-digit /call-me number the human read out of the app, then RING that phone " +
         "to prove the loop works and return what they say. Tell them their phone is about to ring " +
         "before you call this — it blocks for up to 90s and falls back to a text if nobody answers. " +
         "Every Claude session on this machine then reaches the same phone.",
@@ -167,7 +167,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "identity",
-      description: "Show this Claude session's Call Me routing number and the paired phone",
+      description: "Show this Claude session's /call-me routing number and the paired phone",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
@@ -222,7 +222,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       // off or still starting, nothing will ever wake you.
       if (!waiterAlive(stateKey)) {
         return toolResult(
-          `Armed a ${seconds}s window, but no Call Me waiter monitor is running in this session, so ` +
+          `Armed a ${seconds}s window, but no /call-me waiter monitor is running in this session, so ` +
             "NOTHING will time it and you will not be woken. If the answer matters, text or call them " +
             "now instead of ending your turn on the question.",
         );
@@ -239,7 +239,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       const number = normalizeNumber(args.number);
       if (!isValidNumber(number)) {
         return toolResult(
-          `"${args.number}" is not a 10-digit Call Me number. Ask the human to read it off the ` +
+          `"${args.number}" is not a 10-digit /call-me number. Ask the human to read it off the ` +
             "app's home screen again — do not guess.",
           true,
         );
@@ -250,7 +250,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Ring rather than text: one answered call proves push delivery, CallKit,
       // two-way audio and transcription at once, and it is the moment the
       // product sells itself. The text is only the fallback.
-      const shared = `Every Call Me session on this machine now uses ${displayNumber(number)}.`;
+      const shared = `Every /call-me session on this machine now uses ${displayNumber(number)}.`;
       try {
         const result = await placeCall(
           number,
@@ -339,7 +339,7 @@ function setupText() {
   return [
     "Show these steps to the human as-is:",
     "",
-    '1. Install "Call Me" (free) on your iPhone:',
+    '1. Install "/call-me" (free) on your iPhone:',
     `     ${APP_STORE_URL}`,
     "2. Open it and tap Agree & Continue — the app shows your 10-digit number.",
     "3. Read that number back to me.",
@@ -359,7 +359,7 @@ function setupText() {
     "",
     "B. If they said sometimes or usually, turn on the standing reminder:",
     `       ${cli} remind on`,
-    "   Without it the Stop hook only nudges sessions that already used Call Me,",
+    "   Without it the Stop hook only nudges sessions that already used /call-me,",
     "   so a session that never thinks to mention it stays silent — which is",
     "   exactly the session where they miss you asking.",
     "",
@@ -486,6 +486,6 @@ function saveStateObject(state) {
   try {
     writeJsonPrivate(stateFile, { api, userNumber: pairedNumber(), ...state });
   } catch (error) {
-    console.error(`Call Me state save failed: ${error.message}`);
+    console.error(`/call-me state save failed: ${error.message}`);
   }
 }

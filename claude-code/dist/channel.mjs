@@ -15602,7 +15602,7 @@ function currentUserNumber(options) {
 function forgetCachedNumber() {
   cached2 = { at: 0, value: null };
 }
-var NOT_PAIRED_HINT = "Not paired with a phone yet. Run the setup tool and show the human its output verbatim, then pair with the 10-digit number they read back from the Call Me app. Never guess a number \u2014 it is a credential and a wrong one rings a stranger.";
+var NOT_PAIRED_HINT = "Not paired with a phone yet. Run the setup tool and show the human its output verbatim, then pair with the 10-digit number they read back from the /call-me app. Never guess a number \u2014 it is a credential and a wrong one rings a stranger.";
 function hardenModes() {
   const dir = stateDir();
   try {
@@ -15643,7 +15643,7 @@ var APP_STORE_URL = "https://apps.apple.com/app/id6789575165";
 // channel.mjs
 var api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
 var projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
-var SETUP_COPY_REV = "2026-07-30";
+var SETUP_COPY_REV = "2026-08-09";
 var PAIR_CALL_TIMEOUT_S = 90;
 var stateFile = stateFileFor();
 var stateKey = (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "") || (process.env.CLAUDE_PROJECT_DIR || process.cwd()).replace(/[^A-Za-z0-9]+/g, "-");
@@ -15665,7 +15665,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "reply",
-      description: "Reply by text to the paired human in the Call Me conversation",
+      description: "Reply by text to the paired human in the /call-me conversation",
       inputSchema: textSchema("Reply text")
     },
     {
@@ -15711,12 +15711,12 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "setup",
-      description: "Onboarding instructions to show a human who has not set up Call Me yet (App Store link + how to read their number back). Use this instead of guessing a number.",
+      description: "Onboarding instructions to show a human who has not set up /call-me yet (App Store link + how to read their number back). Use this instead of guessing a number.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false }
     },
     {
       name: "pair",
-      description: "Remember the 10-digit Call Me number the human read out of the app, then RING that phone to prove the loop works and return what they say. Tell them their phone is about to ring before you call this \u2014 it blocks for up to 90s and falls back to a text if nobody answers. Every Claude session on this machine then reaches the same phone.",
+      description: "Remember the 10-digit /call-me number the human read out of the app, then RING that phone to prove the loop works and return what they say. Tell them their phone is about to ring before you call this \u2014 it blocks for up to 90s and falls back to a text if nobody answers. Every Claude session on this machine then reaches the same phone.",
       inputSchema: {
         type: "object",
         properties: { number: { type: "string", description: "10-digit number from the app" } },
@@ -15726,7 +15726,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "identity",
-      description: "Show this Claude session's Call Me routing number and the paired phone",
+      description: "Show this Claude session's /call-me routing number and the paired phone",
       inputSchema: { type: "object", properties: {}, additionalProperties: false }
     },
     {
@@ -15771,7 +15771,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       armWaiter(stateKey, { question, graceS: seconds, armedBy: "model" });
       if (!waiterAlive(stateKey)) {
         return toolResult(
-          `Armed a ${seconds}s window, but no Call Me waiter monitor is running in this session, so NOTHING will time it and you will not be woken. If the answer matters, text or call them now instead of ending your turn on the question.`
+          `Armed a ${seconds}s window, but no /call-me waiter monitor is running in this session, so NOTHING will time it and you will not be woken. If the answer matters, text or call them now instead of ending your turn on the question.`
         );
       }
       return toolResult(
@@ -15784,13 +15784,13 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       const number3 = normalizeNumber(args.number);
       if (!isValidNumber(number3)) {
         return toolResult(
-          `"${args.number}" is not a 10-digit Call Me number. Ask the human to read it off the app's home screen again \u2014 do not guess.`,
+          `"${args.number}" is not a 10-digit /call-me number. Ask the human to read it off the app's home screen again \u2014 do not guess.`,
           true
         );
       }
       writeConfig({ user_number: number3, source: "mcp-pair" });
       forgetCachedNumber();
-      const shared = `Every Call Me session on this machine now uses ${displayNumber(number3)}.`;
+      const shared = `Every /call-me session on this machine now uses ${displayNumber(number3)}.`;
       try {
         const result = await placeCall(
           number3,
@@ -15862,7 +15862,7 @@ function setupText() {
   return [
     "Show these steps to the human as-is:",
     "",
-    '1. Install "Call Me" (free) on your iPhone:',
+    '1. Install "/call-me" (free) on your iPhone:',
     `     ${APP_STORE_URL}`,
     "2. Open it and tap Agree & Continue \u2014 the app shows your 10-digit number.",
     "3. Read that number back to me.",
@@ -15882,7 +15882,7 @@ function setupText() {
     "",
     "B. If they said sometimes or usually, turn on the standing reminder:",
     `       ${cli} remind on`,
-    "   Without it the Stop hook only nudges sessions that already used Call Me,",
+    "   Without it the Stop hook only nudges sessions that already used /call-me,",
     "   so a session that never thinks to mention it stays silent \u2014 which is",
     "   exactly the session where they miss you asking.",
     "",
@@ -15988,6 +15988,6 @@ function saveStateObject(state) {
   try {
     writeJsonPrivate(stateFile, { api, userNumber: pairedNumber(), ...state });
   } catch (error2) {
-    console.error(`Call Me state save failed: ${error2.message}`);
+    console.error(`/call-me state save failed: ${error2.message}`);
   }
 }

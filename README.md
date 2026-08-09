@@ -1,4 +1,4 @@
-# Call Me — your AI can call you
+# /call-me — your AI can call you
 
 Your AI agents ring your actual iPhone, speak their question aloud, and get
 your spoken answer back as text — or just text you. Works from any AI that
@@ -6,9 +6,9 @@ speaks MCP; nothing to install.
 
 ## 1. Get the app
 
-**[Call Me on the App Store](https://serdaroztetik.com/aiphone/go/readme)** — free.
+**[/call-me on the App Store](https://serdaroztetik.com/aiphone/go/readme)** — free.
 No registration, no email. Open it, tap *Agree & Continue*, and it shows your
-personal **Call Me number**: 10 digits, and all an agent needs to reach you.
+personal **/call-me number**: 10 digits, and all an agent needs to reach you.
 
 ## 2. Connect your AI (MCP)
 
@@ -26,7 +26,7 @@ connector/server pointing at:
 https://serdaroztetik.com/aiphone/mcp
 ```
 
-Then tell your AI once: *"My Call Me number is `<YOUR_10_DIGITS>` — remember
+Then tell your AI once: *"My /call-me number is `<YOUR_10_DIGITS>` — remember
 it."* That's the whole setup.
 
 | Tool | What it does |
@@ -55,7 +55,7 @@ claude plugin enable call-me@call-me   # REQUIRED — install leaves it disabled
 claude plugin list                     # expect: call-me@call-me   ✔ enabled
 ```
 
-Then restart Claude Code and say *"set up Call Me for me"* — it does the rest.
+Then restart Claude Code and say *"set up /call-me for me"* — it does the rest.
 
 ## How it works
 

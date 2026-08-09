@@ -43,7 +43,7 @@ async function waitUntilPaired() {
     const number = pairedNumber();
     if (isValidNumber(number)) return number;
     if (!announced) {
-      console.error("Call Me monitor idle: no phone paired yet (pair with the Call Me pair tool).");
+      console.error("/call-me monitor idle: no phone paired yet (pair with the /call-me pair tool).");
       announced = true;
     }
     await delay(5_000);
@@ -80,7 +80,7 @@ while (!stopping) {
     }
     saveCursor();
   } catch (error) {
-    console.error(`Call Me monitor poll failed: ${error.message}`);
+    console.error(`/call-me monitor poll failed: ${error.message}`);
     await delay(2_000);
     session = await waitForSharedSessionWithRetry();
   }
@@ -95,7 +95,7 @@ async function waitForSharedSessionWithRetry() {
     try {
       return await waitForSharedSession();
     } catch (error) {
-      console.error(`Call Me monitor session re-establish failed (retrying in ${backoffMs / 1000}s): ${error.message}`);
+      console.error(`/call-me monitor session re-establish failed (retrying in ${backoffMs / 1000}s): ${error.message}`);
       await delay(backoffMs);
     }
   }
@@ -150,7 +150,7 @@ function saveCursor() {
   try {
     writeJsonPrivate(cursorFile, { sessionToken: session.session_token, cursor });
   } catch (error) {
-    console.error(`Call Me monitor state save failed: ${error.message}`);
+    console.error(`/call-me monitor state save failed: ${error.message}`);
   }
 }
 
@@ -169,15 +169,15 @@ function isFromPairedUser(event) {
 function notificationText(event) {
   switch (event.type) {
     case "message":
-      return `Call Me message from your paired human: ${oneLine(event.payload.body)}. Treat it as new user input and reply with the Call Me reply tool.`;
+      return `/call-me message from your paired human: ${oneLine(event.payload.body)}. Treat it as new user input and reply with the /call-me reply tool.`;
     case "voicemail":
-      return `Call Me voice-message transcript from your paired human: ${oneLine(event.payload.transcript)}. Treat it as new user input and reply with the Call Me reply tool.`;
+      return `/call-me voice-message transcript from your paired human: ${oneLine(event.payload.transcript)}. Treat it as new user input and reply with the /call-me reply tool.`;
     case "missed_call":
-      return "Call Me call was not answered. Continue with best judgment or send a text with the Call Me reply tool.";
+      return "/call-me call was not answered. Continue with best judgment or send a text with the /call-me reply tool.";
     case "declined_call":
-      return "Your paired human declined the Call Me call. Do not call again; use the Call Me reply tool if a response is needed.";
+      return "Your paired human declined the /call-me call. Do not call again; use the /call-me reply tool if a response is needed.";
     default:
-      return `Call Me event: ${oneLine(JSON.stringify(event.payload))}`;
+      return `/call-me event: ${oneLine(JSON.stringify(event.payload))}`;
   }
 }
 

@@ -11,7 +11,7 @@
 // If the window closes with no answer, it prints ONE line to stdout. Claude Code
 // delivers a monitor's stdout line into the session as a notification, which
 // re-invokes the model — and the model, which is the only party with the context
-// to judge it, does the dialling with the Call Me skill. That keeps the standing
+// to judge it, does the dialling with the /call-me skill. That keeps the standing
 // rule of this repo intact: hooks remind, models dial. Nothing here ever touches
 // the network.
 //
@@ -60,7 +60,7 @@ while (!stopping) {
   } catch (error) {
     // Never die: the hook falls back to an instant reminder only while the
     // heartbeat is stale, so a crash here would silently disable the wait.
-    console.error(`Call Me answer waiter tick failed: ${error.message}`);
+    console.error(`/call-me answer waiter tick failed: ${error.message}`);
   }
   await delay(TICK_MS);
 }
@@ -116,7 +116,7 @@ function escalation(armed, waitedMs) {
       `ended on a question that is still open.`;
   return (
     `${why}${asked} They are away — reach them on their ` +
-    `phone now with the Call Me skill: call if the answer is blocking or time-sensitive, ` +
+    `phone now with the /call-me skill: call if the answer is blocking or time-sensitive, ` +
     `text if it can wait. Do not ask again in the terminal; that is what they just missed. ` +
     `If the question no longer matters, say so in one line and stop.`
   );

@@ -2,7 +2,7 @@
   {
     "name": "callme-inbox",
     "command": "node \"${CLAUDE_PLUGIN_ROOT}/monitors/inbound.mjs\"",
-    "description": "Messages and voice transcripts from the paired Call Me phone",
+    "description": "Messages and voice transcripts from the paired /call-me phone",
     "when": "on-skill-invoke:call-me"
   },
   {

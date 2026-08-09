@@ -124,7 +124,7 @@ do_pair() {
   echo "call nor a text:" >&2
   echo "  ${why:-no detail from the server}" >&2
   echo "Either the number is wrong (ask them to read it off the app home screen again)" >&2
-  echo "or Call Me notifications are off on that phone. Do not report setup as finished." >&2
+  echo "or /call-me notifications are off on that phone. Do not report setup as finished." >&2
   exit 7
 }
 
@@ -134,8 +134,8 @@ do_unpair() {
 }
 
 # Standing reminder: on Claude Code the plugin's Stop hook normally only nudges
-# sessions that already used Call Me. A human who is usually away wants the
-# nudge in EVERY session, including ones that would never mention Call Me.
+# sessions that already used /call-me. A human who is usually away wants the
+# nudge in EVERY session, including ones that would never mention /call-me.
 do_remind() {
   need_jq
   case "${1:-status}" in
@@ -143,7 +143,7 @@ do_remind() {
       if [ -f "$USER_CONF" ] && [ "$(jq -r '.always_remind // false' "$USER_CONF")" = "true" ]; then
         echo "on — every session is reminded before it ends a turn on an open question"
       else
-        echo "off — only sessions that use Call Me are reminded (default)"
+        echo "off — only sessions that use /call-me are reminded (default)"
       fi
       ;;
     on|off)
@@ -300,7 +300,7 @@ EOF
   cat <<EOF
 Show this to your human — it's how they get set up (takes a minute):
 
-1. Install "Call Me" on their iPhone — point the camera at this:
+1. Install "/call-me" on their iPhone — point the camera at this:
 EOF
   echo
   do_qr "$@"
@@ -326,7 +326,7 @@ A. Ask them one question: "How often are you away from the keyboard while I
 B. If they said sometimes or usually, turn on the standing reminder:
        callme remind on
    Without this, the Claude Code Stop hook only nudges sessions that already
-   used Call Me — so a session that never thinks to mention it stays silent,
+   used /call-me — so a session that never thinks to mention it stays silent,
    which is exactly the session where they miss you asking.
 
 C. Write a standing rule into their user-level instructions
@@ -334,7 +334,7 @@ C. Write a standing rule into their user-level instructions
    and append to it — never overwrite. Use their answer from A:
 
        ## Reaching me
-       I'm reachable on my phone through Call Me. When you need a decision, an
+       I'm reachable on my phone through /call-me. When you need a decision, an
        answer, or input from me, contact me instead of stopping with the
        question in your final message — once your turn ends you are asleep and
        cannot reach me. That includes parking it in an interactive question

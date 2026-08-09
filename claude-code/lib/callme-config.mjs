@@ -1,4 +1,4 @@
-// Shared Call Me config/state helpers for the Claude Code plugin.
+// Shared /call-me config/state helpers for the Claude Code plugin.
 //
 // The paired human's number has ONE home: ~/.aiphone/config.json. Every entry
 // point (this plugin's MCP server, its monitor, and the `callme` CLI) reads it
@@ -77,10 +77,10 @@ export function stateKey({ sessionId, projectDir } = {}) {
 
 /**
  * Has the human asked to be reminded in EVERY session, not just ones that have
- * already used Call Me? Off by default: the reminder is then scoped to sessions
+ * already used /call-me? Off by default: the reminder is then scoped to sessions
  * that opted in by using the skill. Onboarding turns it on for humans who are
  * usually away from the keyboard (`callme remind on`), which is what makes the
- * backstop work in a session that would otherwise never mention Call Me.
+ * backstop work in a session that would otherwise never mention /call-me.
  */
 export function alwaysRemind() {
   return readConfig()?.always_remind === true;
@@ -328,7 +328,7 @@ export function forgetCachedNumber() {
 
 export const NOT_PAIRED_HINT =
   "Not paired with a phone yet. Run the setup tool and show the human its output verbatim, " +
-  "then pair with the 10-digit number they read back from the Call Me app. Never guess a number — " +
+  "then pair with the 10-digit number they read back from the /call-me app. Never guess a number — " +
   "it is a credential and a wrong one rings a stranger.";
 
 /** chmod ~/.aiphone to 0700 and every *.json inside it to 0600. */

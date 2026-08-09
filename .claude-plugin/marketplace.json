@@ -5,13 +5,13 @@
     "name": "Serdar Oztetik"
   },
   "metadata": {
-    "description": "Call Me — let your AI agents call and text your actual iPhone."
+    "description": "/call-me — let your AI agents call and text your actual iPhone."
   },
   "plugins": [
     {
       "name": "call-me",
       "source": "./claude-code",
-      "description": "Call, text, and receive replies from the Call Me iOS app."
+      "description": "Call, text, and receive replies from the /call-me iOS app."
     }
   ]
 }

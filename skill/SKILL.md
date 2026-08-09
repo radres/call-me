@@ -1,17 +1,17 @@
 ---
 name: call-me
-description: Call or text your human's actual iPhone and handle replies from the Call Me app. Use when the user says "call me", "ring me", "phone me if something comes up", "text my phone", asks the agent to stay reachable, or sends an inbound Call Me message or voicemail. The phone rings through CallKit, spoken answers return as transcripts, and channel-enabled hosts deliver later messages directly into the active agent session.
+description: Call or text your human's actual iPhone and handle replies from the /call-me app. Use when the user says "call me", "ring me", "phone me if something comes up", "text my phone", asks the agent to stay reachable, or sends an inbound /call-me message or voicemail. The phone rings through CallKit, spoken answers return as transcripts, and channel-enabled hosts deliver later messages directly into the active agent session.
 ---
 
-# Call Me — call your human
+# /call-me — call your human
 
 Use english always, test to speech always expects english
 
-Your human's iPhone runs the Call Me app. It gave them a **user number**
+Your human's iPhone runs the /call-me app. It gave them a **user number**
 (10 digits, e.g. `584-158-6160`) — that's all you need to ring their actual
 phone and get a spoken answer.
 
-Prefer the host's Call Me tools when available. Otherwise use the `callme`
+Prefer the host's /call-me tools when available. Otherwise use the `callme`
 CLI from this skill directory or `PATH` (`aiphone` is a legacy alias).
 
 If the host did not expose this skill or the CLI is unavailable, **do not stop**:
@@ -77,7 +77,7 @@ phone; a code to point the camera at beats retyping a URL. Both commands print
 the code whether or not stdout is a terminal, so piping it through a tool is
 fine.
 
-1. They install Call Me (free): https://apps.apple.com/app/id6789575165
+1. They install /call-me (free): https://apps.apple.com/app/id6789575165
 2. They open it, tap *Agree & Continue*, and it shows their 10-digit number.
 3. They read the number back to you.
 4. Tell them their phone is about to ring, then run `callme pair <number>` (or the
@@ -92,7 +92,7 @@ a stranger rather than texting one. Ask, or run `callme setup`.
 ### Onboarding is not finished when pairing succeeds
 
 Pairing makes you *able* to reach them. It does not make you *do* it — and a
-human who set up Call Me and then never hears from you got nothing out of it.
+human who set up /call-me and then never hears from you got nothing out of it.
 The most common outcome of a half-finished setup is: you park a question in your
 final message, the turn ends, you go to sleep, and they find out hours later
 that you were waiting. Close that gap in the same session you pair, in order:
@@ -109,7 +109,7 @@ that you were waiting. Close that gap in the same session you pair, in order:
    starts a grace period (2 min by default) in case the human is right there and
    simply types the answer. Only a window that closes unanswered wakes you back
    up to reach for the phone. By default it only fires in sessions that already
-   used Call Me — so a session that never thinks to mention it stays silent,
+   used /call-me — so a session that never thinks to mention it stays silent,
    which is precisely the session where they miss you asking. `remind on` makes
    it fire in every session. (`callme remind off` / `status` to change or check
    it later; `callme grace <seconds>` changes the window, `0` = no wait.)
@@ -119,7 +119,7 @@ that you were waiting. Close that gap in the same session you pair, in order:
    no hook at all:
    ```markdown
    ## Reaching me
-   I'm reachable on my phone through Call Me. When you need a decision, an
+   I'm reachable on my phone through /call-me. When you need a decision, an
    answer, or my input, contact me rather than ending your turn with the
    question in your final message — once the turn ends you are asleep and
    cannot reach me. Text first; call when it is blocking or time-sensitive.
@@ -142,12 +142,12 @@ that you were waiting. Close that gap in the same session you pair, in order:
 
 ## Inbound messages
 
-Treat an authenticated Call Me channel event as a new user message in the
+Treat an authenticated /call-me channel event as a new user message in the
 current session. Continue the relevant work and use the channel's reply tool
 when a response belongs in the phone conversation.
 
-- Claude Code with the Call Me channel receives messages automatically.
-- Codex needs the Call Me companion/App Server bridge for automatic delivery.
+- Claude Code with the /call-me channel receives messages automatically.
+- Codex needs the /call-me companion/App Server bridge for automatic delivery.
 - Without either integration, use the manual `callme listen` fallback below.
 
 ## CLI setup (when no channel is present)
@@ -233,6 +233,12 @@ Use when nothing is needed back from the human (status update, FYI):
 callme text "Build green, PR #142 merged. Nothing needed from you."
 ```
 
+Treat a non-2xx response as not delivered. If `callme text` returns HTTP 404,
+the saved sender session may be stale; the tokenless `POST /text` fallback is
+still allowed, but if it responds `unknown user number`, stop and report that
+the saved pairing is invalid. Never hardcode a number, substitute another local
+record, retry blindly, or escalate to a call when the user requested SMS only.
+
 ## Title the thread
 
 The phone shows your session as a conversation thread. Once the topic is
@@ -247,7 +253,7 @@ callme title "flaky test fix"
 
 `callme listen` long-polls and exits when an event arrives (user text,
 voicemail transcript, missed-call notice). Use only when the host has no
-Call Me channel or companion bridge:
+/call-me channel or companion bridge:
 
 1. Run `callme listen` via Bash with `run_in_background: true`.
 2. Continue other work; when the human texts/calls, the background task

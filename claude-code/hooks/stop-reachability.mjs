@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Stop hook shipped with the Call Me plugin — the reachability backstop.
+// Stop hook shipped with the /call-me plugin — the reachability backstop.
 //
 // The problem: "call me when you need input" is a rule the model can only obey
 // while a turn is running. Once the turn ends the model is asleep, so a question
@@ -65,7 +65,7 @@ const ALREADY_REACHED_WINDOW_S = numberFromEnv("CALLME_STOP_REMINDER_REACHED_WIN
 
 const REMINDER =
   "You are about to end your turn with an open question, and your human is not " +
-  "watching the terminal. Reach them on their phone now with the Call Me skill — " +
+  "watching the terminal. Reach them on their phone now with the /call-me skill — " +
   "text first, call if it is genuinely blocking or time-sensitive. If no contact " +
   "is actually needed, say so in one short line and stop.";
 
@@ -103,13 +103,13 @@ async function main() {
   const sessionId = String(input.session_id || "").replace(/[^A-Za-z0-9-]/g, "");
   const cwd = typeof input.cwd === "string" ? input.cwd : "";
 
-  // Scope. By default only sessions that actually opted into Call Me get a nudge:
+  // Scope. By default only sessions that actually opted into /call-me get a nudge:
   // the per-session state file is written by the MCP server / monitor on first
   // real use, so its existence is the same signal that scopes the monitor to
   // on-skill-invoke, and a session that never touched the skill stays silent.
   //
   // That default has an onboarding hole, though — a human who is usually away
-  // wants the backstop in sessions that would never think to mention Call Me at
+  // wants the backstop in sessions that would never think to mention /call-me at
   // all. `callme remind on` sets always_remind for exactly that case.
   if (!alwaysRemind() && !optedInStateFile(sessionId, cwd)) return;
 
