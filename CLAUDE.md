@@ -12,19 +12,61 @@ personal **/call-me number**: 10 digits, and all an agent needs to reach you.
 
 ## 2. Connect your AI (MCP)
 
-Claude Code:
+One server, every MCP client — no API key, no OAuth:
+
+```
+https://serdaroztetik.com/aiphone/mcp
+```
+
+**Claude Code**
 
 ```bash
 claude mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
 ```
 
-Everywhere else — ChatGPT (Settings → Apps → Advanced → Developer mode),
-Cursor, claude.ai connectors, or any other MCP client — add a custom
-connector/server pointing at:
+**opencode** — add to `opencode.json` (or `~/.config/opencode/opencode.json`):
 
+```json
+{
+  "mcp": {
+    "call-me": {
+      "type": "remote",
+      "url": "https://serdaroztetik.com/aiphone/mcp",
+      "enabled": true
+    }
+  }
+}
 ```
-https://serdaroztetik.com/aiphone/mcp
+
+**Codex CLI**
+
+```bash
+codex mcp add call-me --url https://serdaroztetik.com/aiphone/mcp
 ```
+
+**Gemini CLI**
+
+```bash
+gemini mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
+```
+
+**Cursor** — add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
+
+```json
+{
+  "mcpServers": {
+    "call-me": { "url": "https://serdaroztetik.com/aiphone/mcp" }
+  }
+}
+```
+
+**ChatGPT** — Settings → Apps → Advanced → Developer mode → add a connector
+with the URL above (no authentication).
+
+**claude.ai** — Settings → Connectors → Add custom connector → the URL above.
+
+**Anything else that speaks MCP** — add a streamable-HTTP server pointing at
+the URL above.
 
 Then tell your AI once: *"My /call-me number is `<YOUR_10_DIGITS>` — remember
 it."* That's the whole setup.
@@ -55,10 +97,7 @@ claude plugin enable call-me@call-me   # REQUIRED — install leaves it disabled
 claude plugin list                     # expect: call-me@call-me   ✔ enabled
 ```
 
-Then restart Claude Code and say *"set up /call-me for me"* — it does the rest:
-pairing, a "## Reaching me" rule in your `~/.claude/CLAUDE.md`, and (if you're
-often away) `callme remind on` so every session gets the reachability backstop.
-Undo later with `callme remind off`.
+Then restart Claude Code and say *"set up /call-me for me"* — it does the rest.
 
 ## How it works
 
