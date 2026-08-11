@@ -65,10 +65,10 @@ with the URL above (no authentication).
 
 **claude.ai** — Settings → Connectors → Add custom connector → the URL above.
 
-**Anything else that speaks MCP** — add a streamable-HTTP server pointing at
+Anything else that speaks MCP — add a streamable-HTTP server pointing at
 the URL above.
 
-Then tell your AI once: *"My /call-me number is `<YOUR_10_DIGITS>` — remember
+**Then tell your AI once:** *"My /call-me number is `<YOUR_10_DIGITS>` — remember
 it."* That's the whole setup.
 
 | Tool | What it does |
