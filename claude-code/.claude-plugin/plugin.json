@@ -2,13 +2,19 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "call-me",
   "displayName": "/call-me",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Call, text, and receive replies from the /call-me iOS app. Pair once (any session) and every Claude on this machine reaches the same phone.",
   "author": {
     "name": "Serdar Oztetik"
   },
   "defaultEnabled": false,
   "mcpServers": "./.mcp.json",
+  "channels": [
+    {
+      "server": "callme",
+      "displayName": "/call-me"
+    }
+  ],
   "experimental": {
     "monitors": "./monitors/monitors.json"
   },

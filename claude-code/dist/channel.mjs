@@ -15519,6 +15519,14 @@ function clampModelWait(seconds) {
   if (!Number.isFinite(parsed)) return answerGraceSeconds();
   return Math.min(MODEL_WAIT_MAX_S, Math.max(MODEL_WAIT_MIN_S, parsed));
 }
+function clearWaiter(stateKey2) {
+  try {
+    unlinkSync(awaitPath(stateKey2));
+    return true;
+  } catch {
+    return false;
+  }
+}
 function answerGraceSeconds() {
   const env = Number.parseInt(process.env.CALLME_ANSWER_GRACE ?? "", 10);
   if (Number.isFinite(env) && env >= 0) return env;
@@ -15532,6 +15540,36 @@ function stampFresh(file, seconds) {
   } catch {
     return false;
   }
+}
+function touchStamp(file) {
+  try {
+    mkdirSync(dirname(file), { recursive: true, mode: 448 });
+    writeFileSync(file, `${(/* @__PURE__ */ new Date()).toISOString()}
+`, { mode: 384 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function channelPushEnabled() {
+  if (process.env.CALLME_CHANNEL_PUSH === "0") return false;
+  if (process.env.CALLME_CHANNEL_PUSH === "1") return true;
+  return readConfig()?.channel_push === true;
+}
+function channelClaimPath(stateKey2) {
+  return join(stateDir(), `claude-chanclaim-${stateKey2}.json`);
+}
+function claimChannel(stateKey2) {
+  return touchStamp(channelClaimPath(stateKey2));
+}
+function releaseChannel(stateKey2) {
+  try {
+    unlinkSync(channelClaimPath(stateKey2));
+  } catch {
+  }
+}
+function inboundCursorPath(stateKey2) {
+  return join(stateDir(), `claude-monitor-${stateKey2}.json`);
 }
 function markReachedOut(stateKey2, kind) {
   try {
@@ -15637,10 +15675,46 @@ function pruneStaleState({ days = 30 } = {}) {
   return removed;
 }
 
+// ../lib/inbound-events.mjs
+function isFromPairedUser(event, userNumber) {
+  if (!userNumber) return false;
+  if (event.type === "message" || event.type === "voicemail") {
+    return normalizeNumber(event.payload?.from || "") === userNumber;
+  }
+  if (event.type === "missed_call" || event.type === "declined_call") {
+    return normalizeNumber(event.payload?.to || "") === userNumber;
+  }
+  return false;
+}
+function notificationText(event) {
+  switch (event.type) {
+    case "message":
+      return `/call-me message from your paired human: ${oneLine(event.payload?.body)}. Treat it as new user input and reply with the /call-me reply tool.`;
+    case "voicemail":
+      return `/call-me voice-message transcript from your paired human: ${oneLine(event.payload?.transcript)}. Treat it as new user input and reply with the /call-me reply tool.`;
+    case "missed_call":
+      return "/call-me call was not answered. Continue with best judgment or send a text with the /call-me reply tool.";
+    case "declined_call":
+      return "Your paired human declined the /call-me call. Do not call again; use the /call-me reply tool if a response is needed.";
+    default:
+      return `/call-me event: ${oneLine(JSON.stringify(event.payload))}`;
+  }
+}
+function eventMeta(event) {
+  const meta2 = { kind: String(event.type || "event") };
+  if (event.id !== void 0 && event.id !== null) meta2.event_id = String(event.id);
+  return meta2;
+}
+function oneLine(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
 // ../lib/appstore-qr.mjs
 var APP_STORE_URL = "https://apps.apple.com/app/id6789575165";
 
 // channel.mjs
+import { execFileSync } from "node:child_process";
+import { readFileSync as readFileSync2 } from "node:fs";
 var api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
 var projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
 var SETUP_COPY_REV = "2026-08-09";
@@ -15652,17 +15726,28 @@ pruneStaleState();
 function pairedNumber() {
   return currentUserNumber().number;
 }
+var MCP_SERVER_NAME = process.env.CALLME_MCP_SERVER_NAME || "plugin:call-me:callme";
+var CHANNELS_ENTRY = `server:${MCP_SERVER_NAME}`;
+var CHANNEL_ONLY = process.env.CALLME_CHANNEL_ONLY === "1";
 var mcp = new Server(
   { name: "callme", version: "0.7.0" },
   {
     capabilities: {
-      tools: {}
+      tools: {},
+      // Unlocks `notifications/claude/channel`: this server may push inbound
+      // messages into the live session instead of being polled. Declaring it is
+      // necessary but not sufficient — see channelActive() for the rest of the
+      // gate. Harmless on hosts that don't implement channels.
+      experimental: { "claude/channel": {} }
     },
-    instructions: "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. If the human might simply be at the keyboard, call wait_for_answer instead of ringing them straight away: it gives them a window you choose to answer here, and wakes you to phone them only if they stay silent. Call it, then end your turn \u2014 do not keep the turn alive waiting. Messages from the paired human arrive as callme-inbox monitor notifications. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number. pair RINGS their phone to prove the loop, so tell them in one line that it is about to ring before you call pair; it blocks until they answer or it times out."
+    // In channel-only mode the plugin's own server is already carrying the full
+    // instructions; repeating them here would put two copies in the model's
+    // context. Say only what is true of THIS server: it delivers inbound.
+    instructions: CHANNEL_ONLY ? "Messages from the paired human arrive as /call-me channel messages. Treat them as user messages for this session and answer them; use the /call-me reply tool to respond by text." : "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. If the human might simply be at the keyboard, call wait_for_answer instead of ringing them straight away: it gives them a window you choose to answer here, and wakes you to phone them only if they stay silent. Call it, then end your turn \u2014 do not keep the turn alive waiting. Messages from the paired human arrive as inbound notifications or /call-me channel messages. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number. pair RINGS their phone to prove the loop, so tell them in one line that it is about to ring before you call pair; it blocks until they answer or it times out."
   }
 );
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
+  tools: CHANNEL_ONLY ? [] : [
     {
       name: "reply",
       description: "Reply by text to the paired human in the /call-me conversation",
@@ -15856,6 +15941,104 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 await mcp.connect(new StdioServerTransport());
+startChannelPump();
+function channelActive() {
+  if (!channelPushEnabled()) return false;
+  return parentArgvHasChannelsEntry();
+}
+function parentArgvHasChannelsEntry() {
+  const argv = readParentArgv();
+  if (!argv) return false;
+  return argv.includes(CHANNELS_ENTRY);
+}
+function readParentArgv() {
+  const ppid = process.ppid;
+  if (!ppid) return null;
+  try {
+    const raw = readFileSync2(`/proc/${ppid}/cmdline`, "utf8");
+    if (raw) return raw.split("\0").join(" ");
+  } catch {
+  }
+  try {
+    return execFileSync("ps", ["-o", "command=", "-p", String(ppid)], {
+      encoding: "utf8",
+      timeout: 2e3,
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+  } catch {
+    return null;
+  }
+}
+function startChannelPump() {
+  if (!channelActive()) {
+    console.error(
+      `/call-me channel push idle: ${channelPushEnabled() ? `this session was not started with --channels ${CHANNELS_ENTRY}` : "channel_push is off (callme channel on)"}. monitors/inbound.mjs is delivering inbound events instead.`
+    );
+    return;
+  }
+  console.error(`/call-me channel push active as ${MCP_SERVER_NAME}; the inbox monitor will stand down.`);
+  claimChannel(stateKey);
+  const heartbeat = setInterval(() => claimChannel(stateKey), 1e4);
+  heartbeat.unref?.();
+  process.on("exit", () => releaseChannel(stateKey));
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.on(signal, () => {
+      releaseChannel(stateKey);
+      process.exit(0);
+    });
+  }
+  if (process.env.CALLME_CHANNEL_SELFTEST === "1") {
+    setTimeout(() => {
+      void mcp.notification({
+        method: "notifications/claude/channel",
+        params: {
+          content: "/call-me channel self-test: inbound push is working in this session. Nothing is wrong and no reply is needed.",
+          meta: { kind: "selftest" }
+        }
+      }).catch((error2) => console.error(`/call-me channel self-test failed: ${error2.message}`));
+    }, 3e3).unref?.();
+  }
+  setImmediate(() => {
+    void pumpLoop();
+  });
+}
+async function pumpLoop() {
+  const cursorFile = inboundCursorPath(stateKey);
+  let cursor = null;
+  for (; ; ) {
+    try {
+      forgetCachedNumber();
+      const session = await ensureSession();
+      if (cursor === null) cursor = restoreCursor(cursorFile, session.session_token);
+      const query = new URLSearchParams({
+        session_token: session.session_token,
+        cursor: String(cursor),
+        wait: "50"
+      });
+      const response = await requestJson(`/sessions/events?${query}`, { timeoutMs: 6e4 });
+      cursor = response.cursor;
+      for (const event of response.events || []) {
+        if (!isFromPairedUser(event, pairedNumber())) continue;
+        clearWaiter(stateKey);
+        await mcp.notification({
+          method: "notifications/claude/channel",
+          params: { content: notificationText(event), meta: eventMeta(event) }
+        });
+      }
+      writeJsonPrivate(cursorFile, { sessionToken: session.session_token, cursor });
+    } catch (error2) {
+      console.error(`/call-me channel poll failed: ${error2.message}`);
+      sessionPromise = null;
+      cursor = null;
+      await new Promise((resolve) => setTimeout(resolve, 2e3));
+    }
+  }
+}
+function restoreCursor(cursorFile, sessionToken) {
+  const saved = readJson(cursorFile);
+  if (saved?.sessionToken === sessionToken && Number.isInteger(saved.cursor)) return saved.cursor;
+  return 0;
+}
 function setupText() {
   const cli = process.env.CALLME_PLUGIN_ROOT ? `${process.env.CALLME_PLUGIN_ROOT}/skills/call-me/callme` : "callme";
   const paired = currentUserNumber();

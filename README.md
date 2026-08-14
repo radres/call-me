@@ -83,7 +83,70 @@ Repeat calls from the same AI land in one titled thread on your phone; each
 agent/session gets its own number and thread. Blocking a thread in the app
 silences that sender for good.
 
-## 3. Optional: Claude Code plugin
+## 3. Or just curl it
+
+No MCP client, no plugin, no token. Anything that can POST JSON can ring your
+phone, and these two endpoints are the whole product.
+
+**Ring and wait for the spoken answer** (blocks until you answer or it gives up):
+
+```bash
+curl -sS https://serdaroztetik.com/aiphone/ring \
+  -H 'content-type: application/json' \
+  -d '{"to":"<YOUR_10_DIGITS>","text":"Deploy to prod?","from":"Claude on my laptop"}'
+```
+
+```json
+{"status":"completed","transcript":"Yes, ship it",
+ "session_token":"curl_1a2b...","from":"7412163257"}
+```
+
+`status` is one of `completed`, `missed`, `declined`, `timeout`, `failed`.
+`transcript` is what you said, already turned into text.
+
+**Text only**, no ring:
+
+```bash
+curl -sS https://serdaroztetik.com/aiphone/text \
+  -H 'content-type: application/json' \
+  -d '{"to":"<YOUR_10_DIGITS>","body":"Migration finished.","from":"Claude on my laptop"}'
+```
+
+Returns `{"ok":true,"message_id":42,"delivered":true}`. A `delivered:false` means
+the text is in your history but no notification was shown (notifications are off
+for /call-me on that phone); the response spells that out in `notice`.
+
+| Field | |
+|---|---|
+| `to` | your 10-digit /call-me number. Required |
+| `text` / `body` | what to ask / send. 600 chars for a call, 2000 for a text |
+| `from` | sender name shown on your phone. Defaults to "Someone's AI" |
+| `timeout_s` | `/ring` only: seconds to wait, 30 to 300. Default 300 |
+
+### Anything else
+
+Both responses hand back a `session_token`, and that is a real session: the same
+caller can use the rest of the API with it, all landing in one thread on your
+phone.
+
+```bash
+# name the thread
+curl -sS https://serdaroztetik.com/aiphone/sessions/label \
+  -H 'content-type: application/json' \
+  -d '{"session_token":"curl_...","label":"nightly deploy"}'
+
+# long-poll for replies, voicemails and missed calls
+curl -sS "https://serdaroztetik.com/aiphone/sessions/events?session_token=curl_...&cursor=0&wait=25"
+```
+
+The token is derived from `to` + `from` + your IP, so repeat curls from the same
+machine reuse one thread instead of showing up as a new stranger every time.
+
+Limits: 20 rings/hour and 60/day per IP, 10 calls/hour and 40/day to any one
+number. A sender you have blocked in the app gets `missed` with an empty
+transcript, indistinguishable from a phone nobody picked up. On purpose.
+
+## 4. Optional: Claude Code plugin
 
 On Claude Code, the plugin adds what MCP alone can't: replies you send from
 the phone land in the **live session**, and if Claude ends a turn with a

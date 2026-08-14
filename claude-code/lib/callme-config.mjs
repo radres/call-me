@@ -228,6 +228,66 @@ export function touchStamp(file) {
   }
 }
 
+// --- inbound transport: monitor line vs MCP channel push --------------------
+//
+// The same phone events can arrive two ways (see lib/inbound-events.mjs). Only
+// ONE may deliver them, or every message lands in the model's context twice.
+//
+// The channel pump is the owner when it runs, and it says so by heartbeating a
+// claim file; the monitor reads that file and stays quiet. The claim is a
+// heartbeat rather than a flag on purpose: if the MCP server dies, is never
+// started, or is running a build without the pump, the claim goes stale within
+// seconds and the monitor picks delivery back up on its own. A boolean would
+// strand the session with no inbound at all.
+
+/** Config/env switch for the channel transport. Env wins so a session can opt out. */
+export function channelPushEnabled() {
+  if (process.env.CALLME_CHANNEL_PUSH === "0") return false;
+  if (process.env.CALLME_CHANNEL_PUSH === "1") return true;
+  return readConfig()?.channel_push === true;
+}
+
+/** The channel pump's "I own inbound for this session" heartbeat. */
+export function channelClaimPath(stateKey) {
+  return join(stateDir(), `claude-chanclaim-${stateKey}.json`);
+}
+
+/**
+ * Is a channel pump delivering this session's events right now?
+ *
+ * The window is deliberately wider than the heartbeat interval (10s) because the
+ * pump spends most of its life inside a 50s long poll — it refreshes on a timer,
+ * not per event, so a tight window here would flap and double-deliver.
+ */
+export function channelClaimed(stateKey, maxAgeS = 30) {
+  return stampFresh(channelClaimPath(stateKey), maxAgeS);
+}
+
+/** Refresh the claim. Cheap enough to call on a timer. */
+export function claimChannel(stateKey) {
+  return touchStamp(channelClaimPath(stateKey));
+}
+
+/** Hand delivery back to the monitor immediately, without waiting out the TTL. */
+export function releaseChannel(stateKey) {
+  try {
+    unlinkSync(channelClaimPath(stateKey));
+  } catch {
+    // Never claimed, or already gone.
+  }
+}
+
+/**
+ * Where the inbound cursor lives. Shared by BOTH transports on purpose: a
+ * session that falls back from channel push to the monitor (or the reverse)
+ * resumes where the other stopped instead of replaying the whole thread.
+ * The filename keeps its original `claude-monitor-` prefix so already-running
+ * installs keep their place across this upgrade.
+ */
+export function inboundCursorPath(stateKey) {
+  return join(stateDir(), `claude-monitor-${stateKey}.json`);
+}
+
 /** Note that the human was just contacted, for reachStampPath() readers. */
 export function markReachedOut(stateKey, kind) {
   try {
@@ -351,7 +411,7 @@ export function pruneStaleState({ days = 30 } = {}) {
   let removed = 0;
   try {
     for (const name of readdirSync(stateDir())) {
-      if (!/^claude-(session|monitor|channel|reach|await|waiter)-.*\.json$/.test(name)) continue;
+      if (!/^claude-(session|monitor|channel|chanclaim|reach|await|waiter)-.*\.json$/.test(name)) continue;
       const file = join(stateDir(), name);
       try {
         if (statSync(file).mtimeMs < cutoff) {

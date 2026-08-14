@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 import {
+  channelClaimed,
   clearWaiter,
   currentUserNumber,
   forgetCachedNumber,
+  inboundCursorPath,
   isValidNumber,
-  normalizeNumber,
   readJson,
-  stateDir,
   stateFileFor,
   writeJsonPrivate,
 } from "../lib/callme-config.mjs";
-import { join } from "node:path";
+import { isFromPairedUser, notificationText } from "../lib/inbound-events.mjs";
 
 const api = (
   process.env.AIPHONE_API ||
@@ -24,7 +24,9 @@ const projectName = projectDir.split("/").filter(Boolean).at(-1) || "project";
 const sessionFile = stateFileFor({ projectDir });
 const claudeSessionId = (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "");
 const stateKey = claudeSessionId || projectDir.replace(/[^A-Za-z0-9]+/g, "-");
-const cursorFile = join(stateDir(), `claude-monitor-${stateKey}.json`);
+// Shared with the MCP server's channel pump, so whichever transport takes over
+// resumes at the same place in the thread instead of replaying it.
+const cursorFile = inboundCursorPath(stateKey);
 
 // The paired number lives in ~/.aiphone/config.json (see lib/callme-config.mjs).
 // Re-read it every poll: pairing from another terminal, or a re-pair to a new
@@ -70,10 +72,19 @@ while (!stopping) {
     cursor = response.cursor;
 
     for (const event of response.events) {
-      if (!isFromPairedUser(event)) continue;
+      if (!isFromPairedUser(event, pairedNumber())) continue;
       // Answering from the phone IS answering. Disarm the Stop hook's waiter so
       // it cannot later wake the model to say "they never answered".
       clearWaiter(stateKey);
+      // If the MCP server's channel pump is delivering this session's events,
+      // printing here would put every message in the model's context TWICE.
+      // Checked per event rather than once at startup: the pump can appear or
+      // die at any point in a long session, and this is the only place where
+      // getting it wrong is visible to the human.
+      //
+      // The cursor still advances either way, so nothing is replayed when the
+      // pump goes away and this monitor takes delivery back.
+      if (channelClaimed(stateKey)) continue;
       // Claude monitors deliver each stdout line as an inbound notification.
       // Keep the entire instruction on one line; diagnostics belong on stderr.
       process.stdout.write(`${notificationText(event)}\n`);
@@ -152,37 +163,6 @@ function saveCursor() {
   } catch (error) {
     console.error(`/call-me monitor state save failed: ${error.message}`);
   }
-}
-
-function isFromPairedUser(event) {
-  const userNumber = pairedNumber();
-  if (!userNumber) return false;
-  if (event.type === "message" || event.type === "voicemail") {
-    return normalizeNumber(event.payload.from || "") === userNumber;
-  }
-  if (event.type === "missed_call" || event.type === "declined_call") {
-    return normalizeNumber(event.payload.to || "") === userNumber;
-  }
-  return false;
-}
-
-function notificationText(event) {
-  switch (event.type) {
-    case "message":
-      return `/call-me message from your paired human: ${oneLine(event.payload.body)}. Treat it as new user input and reply with the /call-me reply tool.`;
-    case "voicemail":
-      return `/call-me voice-message transcript from your paired human: ${oneLine(event.payload.transcript)}. Treat it as new user input and reply with the /call-me reply tool.`;
-    case "missed_call":
-      return "/call-me call was not answered. Continue with best judgment or send a text with the /call-me reply tool.";
-    case "declined_call":
-      return "Your paired human declined the /call-me call. Do not call again; use the /call-me reply tool if a response is needed.";
-    default:
-      return `/call-me event: ${oneLine(JSON.stringify(event.payload))}`;
-  }
-}
-
-function oneLine(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 async function requestJson(path, { method = "GET", body, timeoutMs = 30_000 } = {}) {

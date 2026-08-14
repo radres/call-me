@@ -11,22 +11,30 @@ import {
   MODEL_WAIT_MIN_S,
   NOT_PAIRED_HINT,
   armWaiter,
+  channelPushEnabled,
+  claimChannel,
   clampModelWait,
+  clearWaiter,
   currentUserNumber,
   displayNumber,
   forgetCachedNumber,
   hardenModes,
+  inboundCursorPath,
   isValidNumber,
   markReachedOut,
   normalizeNumber,
   pruneStaleState,
   readJson,
+  releaseChannel,
   stateFileFor,
   waiterAlive,
   writeConfig,
   writeJsonPrivate,
 } from "../lib/callme-config.mjs";
+import { eventMeta, isFromPairedUser, notificationText } from "../lib/inbound-events.mjs";
 import { APP_STORE_URL } from "../lib/appstore-qr.mjs";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
 const projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
@@ -65,20 +73,49 @@ function pairedNumber() {
   return currentUserNumber().number;
 }
 
+// The name Claude Code knows this server by, which is the exact string the
+// channel gate matches against the session's --channels list. Plugin-provided
+// MCP servers are registered as `plugin:<plugin>:<serverKey>`, hence the default.
+//
+// Overridable because the same file can also run as a plain user-scoped MCP
+// server, where the name is whatever `claude mcp add` was given. Getting this
+// wrong is silent (the gate just never matches), so `callme channel status`
+// prints the entry this process expects rather than making anyone guess.
+const MCP_SERVER_NAME = process.env.CALLME_MCP_SERVER_NAME || "plugin:call-me:callme";
+const CHANNELS_ENTRY = `server:${MCP_SERVER_NAME}`;
+
+// Inbound-only mode: declare the channel, run the pump, register NO tools.
+//
+// For hosts where the plugin's own server cannot be channel-registered, this
+// file can be added as a second, plain MCP server purely to carry inbound push.
+// It must not also expose call/text/reply there — two servers offering the same
+// tools is how a model ends up texting the human twice.
+const CHANNEL_ONLY = process.env.CALLME_CHANNEL_ONLY === "1";
+
 const mcp = new Server(
   { name: "callme", version: "0.7.0" },
   {
     capabilities: {
       tools: {},
+      // Unlocks `notifications/claude/channel`: this server may push inbound
+      // messages into the live session instead of being polled. Declaring it is
+      // necessary but not sufficient — see channelActive() for the rest of the
+      // gate. Harmless on hosts that don't implement channels.
+      experimental: { "claude/channel": {} },
     },
-    instructions:
-      "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and " +
+    // In channel-only mode the plugin's own server is already carrying the full
+    // instructions; repeating them here would put two copies in the model's
+    // context. Say only what is true of THIS server: it delivers inbound.
+    instructions: CHANNEL_ONLY
+      ? "Messages from the paired human arrive as /call-me channel messages. Treat them as user " +
+        "messages for this session and answer them; use the /call-me reply tool to respond by text."
+      : "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and " +
       "cannot contact anyone, so a question left in your final message never gets asked. Text first, " +
       "call when it is blocking or time-sensitive. " +
       "If the human might simply be at the keyboard, call wait_for_answer instead of ringing them " +
       "straight away: it gives them a window you choose to answer here, and wakes you to phone them " +
       "only if they stay silent. Call it, then end your turn — do not keep the turn alive waiting. " +
-      "Messages from the paired human arrive as callme-inbox monitor notifications. " +
+      "Messages from the paired human arrive as inbound notifications or /call-me channel messages. " +
       "Treat them as user messages for this session. Use the reply tool for conversational replies, " +
       "text for one-way updates, and call only when a spoken answer is genuinely needed. " +
       "The phone shows this session as a conversation thread; once the topic is clear (and when it " +
@@ -91,7 +128,7 @@ const mcp = new Server(
 );
 
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
+  tools: CHANNEL_ONLY ? [] : [
     {
       name: "reply",
       description: "Reply by text to the paired human in the /call-me conversation",
@@ -325,11 +362,198 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-// Inbound events are consumed by monitors/inbound.mjs (Claude monitor), which
-// shares this process's persisted session. Channel notifications are blocked
-// by the channels allowlist even with the development bypass flags, so this
-// server only provides tools and the shared session.
 await mcp.connect(new StdioServerTransport());
+
+// Inbound events reach the model one of two ways. This server pushes them over
+// the MCP channel when it can; otherwise monitors/inbound.mjs prints them and
+// this pump never starts. startChannelPump() is what decides, and it decides
+// conservatively — see channelActive().
+startChannelPump();
+
+// --- inbound push over the MCP channel --------------------------------------
+
+/**
+ * Can this session actually receive `notifications/claude/channel`?
+ *
+ * The host gate has several conditions we cannot see from out here (feature
+ * flag, provider, protocol era, org `channelsEnabled`), and a notification that
+ * fails the gate is dropped SILENTLY — no error, no reply, nothing to catch. So
+ * a pump that guessed wrong would take delivery away from the monitor and drop
+ * every message into a void.
+ *
+ * The one condition that is both decisive and visible is the per-session
+ * --channels allowlist: it is never on by default, so its presence in the parent
+ * claude process's argv means somebody deliberately turned this on. Requiring it
+ * makes the failure mode "monitor keeps working" instead of "inbound silently
+ * stops", which is the only acceptable direction for this trade.
+ */
+function channelActive() {
+  if (!channelPushEnabled()) return false;
+  return parentArgvHasChannelsEntry();
+}
+
+/**
+ * Read the launching claude process's argv and look for our --channels entry.
+ *
+ * /proc is exact where it exists; `ps -o command=` is the macOS fallback and
+ * prints the full command line (not the truncated form `ps` shows by default).
+ * Any failure returns false — an unreadable parent is treated as "not enabled".
+ */
+function parentArgvHasChannelsEntry() {
+  const argv = readParentArgv();
+  if (!argv) return false;
+  // Match the tagged entry only. A bare mention of the server name elsewhere in
+  // the command line (a --plugin-dir path, say) must not count as opt-in.
+  return argv.includes(CHANNELS_ENTRY);
+}
+
+function readParentArgv() {
+  const ppid = process.ppid;
+  if (!ppid) return null;
+  try {
+    // Linux: NUL-separated, exact.
+    const raw = readFileSync(`/proc/${ppid}/cmdline`, "utf8");
+    if (raw) return raw.split("\0").join(" ");
+  } catch {
+    // Not Linux, or the process is gone.
+  }
+  try {
+    return execFileSync("ps", ["-o", "command=", "-p", String(ppid)], {
+      encoding: "utf8",
+      timeout: 2_000,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Long-poll the phone's event stream and push each event straight into the
+ * session. Deliberately fire-and-forget: MCP notifications have no response, so
+ * there is nothing to await and nothing to retry against.
+ *
+ * Never throws out of the loop — this runs inside the tools server, and killing
+ * it would take `call`/`text` down with it.
+ */
+function startChannelPump() {
+  if (!channelActive()) {
+    // Say so on stderr (which is the MCP server's debug log, never the model's
+    // context) so "why didn't the channel fire" is answerable without guessing.
+    console.error(
+      `/call-me channel push idle: ${
+        channelPushEnabled()
+          ? `this session was not started with --channels ${CHANNELS_ENTRY}`
+          : "channel_push is off (callme channel on)"
+      }. monitors/inbound.mjs is delivering inbound events instead.`,
+    );
+    return;
+  }
+
+  console.error(`/call-me channel push active as ${MCP_SERVER_NAME}; the inbox monitor will stand down.`);
+
+  // Claim BEFORE the first poll so the monitor stands down immediately, rather
+  // than both delivering the first message that arrives during startup.
+  claimChannel(stateKey);
+  const heartbeat = setInterval(() => claimChannel(stateKey), 10_000);
+  heartbeat.unref?.();
+
+  // Hand delivery back cleanly on shutdown instead of making the monitor wait
+  // out the claim TTL.
+  //
+  // The signal handlers MUST exit: attaching a listener replaces Node's default
+  // terminate-on-signal behaviour, so a handler that only cleans up leaves the
+  // process alive and Claude Code has to escalate SIGINT -> SIGTERM -> SIGKILL
+  // on every session teardown.
+  process.on("exit", () => releaseChannel(stateKey));
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.on(signal, () => {
+      releaseChannel(stateKey);
+      process.exit(0);
+    });
+  }
+
+  // A channel notification that the host declines to route is dropped in
+  // silence, so there is otherwise no way to tell "nothing arrived from the
+  // phone" apart from "this session never had a channel at all". CALLME_CHANNEL_SELFTEST=1
+  // pushes one synthetic message at startup: see it in the session and the whole
+  // path is proven; see nothing and the gate rejected us.
+  if (process.env.CALLME_CHANNEL_SELFTEST === "1") {
+    // Delayed, not immediate: the host attaches its channel notification handler
+    // after the connection is established, so a push sent during initialization
+    // is dropped on the floor. Real events never race this — they arrive from
+    // the phone seconds or minutes later — but the self-test would.
+    setTimeout(() => {
+      void mcp
+        .notification({
+          method: "notifications/claude/channel",
+          params: {
+            content:
+              "/call-me channel self-test: inbound push is working in this session. " +
+              "Nothing is wrong and no reply is needed.",
+            meta: { kind: "selftest" },
+          },
+        })
+        .catch((error) => console.error(`/call-me channel self-test failed: ${error.message}`));
+    }, 3_000).unref?.();
+  }
+
+  // Deferred by one tick, NOT called inline: the module body is suspended at the
+  // top-level `await mcp.connect(...)` above, so `let sessionPromise` further
+  // down has not been initialized yet. pumpLoop() reaches ensureSession()
+  // synchronously before its first await, which would hit the temporal dead zone
+  // and crash the server on startup.
+  setImmediate(() => {
+    void pumpLoop();
+  });
+}
+
+async function pumpLoop() {
+  const cursorFile = inboundCursorPath(stateKey);
+  let cursor = null;
+
+  for (;;) {
+    try {
+      forgetCachedNumber();
+      const session = await ensureSession();
+      if (cursor === null) cursor = restoreCursor(cursorFile, session.session_token);
+
+      const query = new URLSearchParams({
+        session_token: session.session_token,
+        cursor: String(cursor),
+        wait: "50",
+      });
+      const response = await requestJson(`/sessions/events?${query}`, { timeoutMs: 60_000 });
+      cursor = response.cursor;
+
+      for (const event of response.events || []) {
+        if (!isFromPairedUser(event, pairedNumber())) continue;
+        // Answering from the phone IS answering: disarm the waiter so it cannot
+        // later wake the model to say they never replied.
+        clearWaiter(stateKey);
+        await mcp.notification({
+          method: "notifications/claude/channel",
+          params: { content: notificationText(event), meta: eventMeta(event) },
+        });
+      }
+
+      writeJsonPrivate(cursorFile, { sessionToken: session.session_token, cursor });
+    } catch (error) {
+      console.error(`/call-me channel poll failed: ${error.message}`);
+      // Force a session re-check on the next pass; a dead token is the common
+      // cause and ensureSession() re-creates one.
+      sessionPromise = null;
+      cursor = null;
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+  }
+}
+
+function restoreCursor(cursorFile, sessionToken) {
+  const saved = readJson(cursorFile);
+  if (saved?.sessionToken === sessionToken && Number.isInteger(saved.cursor)) return saved.cursor;
+  return 0;
+}
 
 function setupText() {
   const cli = process.env.CALLME_PLUGIN_ROOT

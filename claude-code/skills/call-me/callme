@@ -20,6 +20,8 @@ callme — your AI can call its human
                                   a turn on an open question (for AFK humans)
   callme grace [seconds|status]   how long to wait at the keyboard for an answer
                                   before the phone gets involved (default 120, 0 = at once)
+  callme channel [on|off|status]  deliver inbound messages by MCP channel push
+                                  instead of the inbox monitor (needs --channels)
   callme call "text"             RING the phone, speak the text, BLOCK until the
                                   spoken answer comes back (prints transcript)
   callme text "text"             send a text (push notification on the phone)
@@ -156,6 +158,54 @@ do_remind() {
       do_remind status
       ;;
     *) echo "usage: callme remind [on|off|status]" >&2; exit 1;;
+  esac
+}
+
+# Inbound transport. Two ways the phone's messages reach a live Claude session:
+# the plugin's inbox monitor (a process per session, prints a line) or the MCP
+# server pushing notifications/claude/channel down its already-open stream. The
+# channel is strictly better when available, but Claude Code only routes it for
+# servers named in that session's --channels flag, so this switch alone is not
+# enough — see `callme channel status`.
+do_channel() {
+  need_jq
+  local entry="server:plugin:call-me:callme"
+  case "${1:-status}" in
+    status)
+      if [ -f "$USER_CONF" ] && [ "$(jq -r '.channel_push // false' "$USER_CONF")" = "true" ]; then
+        echo "on — the MCP server pushes inbound messages; the inbox monitor stands down"
+      else
+        echo "off — the inbox monitor delivers inbound messages (default)"
+      fi
+      echo
+      echo "This setting alone is NOT enough. Claude Code must also:"
+      echo "  1. be started with  --channels $entry"
+      echo "  2. accept this server onto its approved channels allowlist."
+      echo
+      echo "Step 2 is the one that bites. Measured 2026-08-10 on Claude Team with"
+      echo "channelsEnabled:true in managed settings, the host still answered:"
+      echo "  \"not on the approved channels allowlist\""
+      echo "The approved list ships from Anthropic and held only their own channel"
+      echo "plugins (discord, telegram, fakechat, imessage). An org admin can widen"
+      echo "it with allowedChannelPlugins in managed settings, but that keys on"
+      echo "{marketplace, plugin} — so it only works once /call-me is channel-enabled"
+      echo "as an installed marketplace plugin, not as a local server: entry."
+      echo
+      echo "VERIFY before trusting it: start a session with the flag and"
+      echo "CALLME_CHANNEL_SELFTEST=1 in the MCP server's env. If no self-test"
+      echo "message appears, the channel is not routed — turn this back off, because"
+      echo "while it is on the inbox monitor stands down and inbound is LOST."
+      ;;
+    on|off)
+      [ -f "$USER_CONF" ] || { echo "pair a phone first: callme pair <number>" >&2; exit 6; }
+      local want=false; [ "$1" = "on" ] && want=true
+      jq --argjson v "$want" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {channel_push:$v, updated_at:$t}' "$USER_CONF" \
+        > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
+      chmod 600 "$USER_CONF"
+      do_channel status
+      ;;
+    *) echo "usage: callme channel [on|off|status]" >&2; exit 1;;
   esac
 }
 
@@ -490,6 +540,7 @@ case "$cmd" in
   unpair)   do_unpair;;
   remind)   do_remind "${1:-status}";;
   grace)    do_grace "${1:-status}";;
+  channel)  do_channel "${1:-status}";;
   number)   do_number "${1:-}";;
   register) register "${1:-AI session}";;
   call)     [ $# -ge 1 ] || usage; do_call "$@";;
