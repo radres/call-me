@@ -162,6 +162,17 @@ claude plugin list                     # expect: call-me@call-me   ✔ enabled
 
 Then restart Claude Code and say *"set up /call-me for me"* — it does the rest.
 
+## 5. Optional: DeepSeek Harness plugin
+
+On DSH, [dsh-plugin-call-me](https://github.com/radres/dsh-plugin-call-me) adds
+what MCP alone can't there either: a turn ending or a tool waiting for approval
+can ring your phone on its own, and because DSH lets a plugin wake an idle run,
+the answer you speak picks the run back up.
+
+```sh
+dsh plugin --profile web add github:radres/dsh-plugin-call-me
+```
+
 ## How it works
 
 - `call` creates a VoIP call (LiveKit WebRTC — no real telephony); your
