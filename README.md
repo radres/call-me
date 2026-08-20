@@ -173,6 +173,21 @@ the answer you speak picks the run back up.
 dsh plugin --profile web add github:radres/dsh-plugin-call-me
 ```
 
+## 6. Optional: herdr plugin
+
+[herdr](https://herdr.dev) is a terminal workspace manager that watches every
+pane and marks an agent `blocked` the moment it puts a real approval or question
+on screen. [herdr-plugin-call-me](https://github.com/radres/herdr-plugin-call-me)
+turns that moment into a call — and then puts your spoken answer back into the
+pane as the keypress the agent was waiting for. It works for whichever of herdr's
+~20 supported agents happens to be in that pane, so it needs nothing from the
+agent itself.
+
+```sh
+herdr plugin install radres/herdr-plugin-call-me
+herdr plugin pane open --plugin radres.call-me --entrypoint pair
+```
+
 ## How it works
 
 - `call` creates a VoIP call (LiveKit WebRTC — no real telephony); your
