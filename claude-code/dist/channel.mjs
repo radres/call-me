@@ -15660,7 +15660,7 @@ function pruneStaleState({ days = 30 } = {}) {
   let removed = 0;
   try {
     for (const name of readdirSync(stateDir())) {
-      if (!/^claude-(session|monitor|channel|reach|await|waiter)-.*\.json$/.test(name)) continue;
+      if (!/^claude-(session|monitor|channel|chanclaim|reach|await|waiter)-.*\.json$/.test(name)) continue;
       const file = join(stateDir(), name);
       try {
         if (statSync(file).mtimeMs < cutoff) {
@@ -16045,7 +16045,7 @@ function setupText() {
   return [
     "Show these steps to the human as-is:",
     "",
-    '1. Install "/call-me" (free) on your iPhone:',
+    '1. Install "/call-me" on your iPhone:',
     `     ${APP_STORE_URL}`,
     "2. Open it and tap Agree & Continue \u2014 the app shows your 10-digit number.",
     "3. Read that number back to me.",

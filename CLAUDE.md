@@ -6,7 +6,7 @@ speaks MCP; nothing to install.
 
 ## 1. Get the app
 
-**[/call-me on the App Store](https://serdaroztetik.com/aiphone/go/readme)** — free.
+**[/call-me on the App Store](https://serdaroztetik.com/aiphone/go/readme)**.
 No registration, no email. Open it, tap *Agree & Continue*, and it shows your
 personal **/call-me number**: 10 digits, and all an agent needs to reach you.
 

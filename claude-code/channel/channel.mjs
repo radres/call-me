@@ -563,7 +563,7 @@ function setupText() {
   return [
     "Show these steps to the human as-is:",
     "",
-    '1. Install "/call-me" (free) on your iPhone:',
+    '1. Install "/call-me" on your iPhone:',
     `     ${APP_STORE_URL}`,
     "2. Open it and tap Agree & Continue — the app shows your 10-digit number.",
     "3. Read that number back to me.",
