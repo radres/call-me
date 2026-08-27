@@ -77,7 +77,7 @@ phone; a code to point the camera at beats retyping a URL. Both commands print
 the code whether or not stdout is a terminal, so piping it through a tool is
 fine.
 
-1. They install /call-me: https://apps.apple.com/app/id6789575165
+1. They install /call-me: https://serdaroztetik.com/aiphone/go/skill
 2. They open it, tap *Agree & Continue*, and it shows their 10-digit number.
 3. They read the number back to you.
 4. Tell them their phone is about to ring, then run `callme pair <number>` (or the
