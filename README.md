@@ -219,22 +219,29 @@ tools.
 Pair the number in the iPhone app first; the panel never overwrites the config
 without an explicit pairing action.
 
-Install from the repository:
+Install:
 
 ```bash
-omarchy plugin add https://github.com/radres/call-me --enable
-# Then search `/call-me` with Super+Space to open setup.
+omarchy plugin add https://github.com/radres/call-me.git --enable
 ```
 
-Remove it safely with:
+Then register the Super+Space launcher entry:
+
+```bash
+bash ~/.config/omarchy/plugins/radres.call-me/install-launcher.sh
+```
+
+Search `/call-me`, `callme`, or `phone` with Super+Space to open setup.
+
+Remove:
 
 ```bash
 omarchy plugin remove radres.call-me
 ```
 
 The plugin's test controls make real requests. Use **Text me** to verify
-delivery before trying a voice call. Full plugin details are in
-[`omarchy/README.md`](omarchy/README.md).
+delivery before trying a voice call. Treat the 10-digit number as a bearer
+credential.
 
 ## How it works
 

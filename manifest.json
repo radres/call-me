@@ -2,14 +2,15 @@
   "schemaVersion": 1,
   "id": "radres.call-me",
   "name": "callme",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Serdar Oztetik",
   "license": "MIT",
+  "homepage": "https://github.com/radres/call-me",
   "description": "One-time setup panel for connecting callme to your AI agents.",
   "kinds": [
     "panel"
   ],
   "entryPoints": {
-    "panel": "omarchy/Panel.qml"
+    "panel": "Panel.qml"
   }
 }
