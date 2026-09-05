@@ -1,1 +1,555 @@
-callme
+#!/usr/bin/env bash
+# callme — call/text your human's phone from an AI session. bash + curl only.
+set -euo pipefail
+umask 077   # session tokens and the paired number are credentials
+
+API="${AIPHONE_API:-https://serdaroztetik.com/aiphone}"
+CONF_DIR="${AIPHONE_HOME:-${AIPHONE_STATE_DIR:-$HOME/.aiphone}}"
+CONF="$CONF_DIR/session.json"
+USER_CONF="$CONF_DIR/config.json"
+
+usage() {
+  cat <<'EOF'
+callme — your AI can call its human
+
+  callme setup                   what to tell a human who hasn't set up the app
+  callme qr [--big|--mono]       App Store QR code to scan with the phone camera
+  callme pair <number>           remember the number AND ring the phone to prove it
+  callme number                  show the paired number
+  callme remind [on|off|status]  remind EVERY session to reach out before it ends
+                                  a turn on an open question (for AFK humans)
+  callme grace [seconds|status]   how long to wait at the keyboard for an answer
+                                  before the phone gets involved (default 120, 0 = at once)
+  callme channel [on|off|status]  deliver inbound messages by MCP channel push
+                                  instead of the inbox monitor (needs --channels)
+  callme call "text"             RING the phone, speak the text, BLOCK until the
+                                  spoken answer comes back (prints transcript)
+  callme text "text"             send a text (push notification on the phone)
+  callme listen                  long-poll; EXITS when an event arrives (voicemail,
+                                  text, missed call). Run with run_in_background.
+  callme events                  print any pending events without waiting
+  callme title "text"            rename this session's thread on the phone
+  callme whoami                  show this session's number/label
+  callme register [label]        get a session number+token (usually automatic)
+  callme status                  server health
+
+  call/text take an explicit recipient too: callme call <number> "text"
+  env: AIPHONE_TIMEOUT (call wait, default 300s), CALLME_USER_NUMBER (override)
+EOF
+  exit 1
+}
+
+need_jq() { command -v jq >/dev/null || { echo "callme needs jq (brew install jq)" >&2; exit 2; }; }
+
+conf() { jq -r ".$1" "$CONF"; }
+
+# --- the paired human's number: one home, ~/.aiphone/config.json ------------
+
+norm() { printf '%s' "${1:-}" | tr -cd '0-9'; }
+valid_number() { [ "${#1}" -eq 10 ]; }
+
+display() {  # 584-158-6160, the grouping the iPhone app shows
+  local n; n=$(norm "${1:-}")
+  if valid_number "$n"; then printf '%s-%s-%s' "${n:0:3}" "${n:3:3}" "${n:6:4}"; else printf '%s' "$n"; fi
+}
+
+resolve_number() {
+  local n
+  n=$(norm "${CALLME_USER_NUMBER:-}");            valid_number "$n" && { printf '%s' "$n"; return; }
+  if [ -f "$USER_CONF" ] && command -v jq >/dev/null; then
+    n=$(norm "$(jq -r '.user_number // ""' "$USER_CONF" 2>/dev/null)")
+    valid_number "$n" && { printf '%s' "$n"; return; }
+  fi
+  n=$(norm "${AIPHONE_USER_NUMBER:-}");           valid_number "$n" && { printf '%s' "$n"; return; }
+  printf ''
+}
+
+require_number() {
+  local n; n=$(resolve_number)
+  if ! valid_number "$n"; then
+    cat >&2 <<'EOF'
+callme: no phone paired yet.
+
+If they don't have the app yet, show them this — camera at the code:
+EOF
+    echo >&2
+    do_qr >&2
+    cat >&2 <<'EOF'
+
+Then: open it, tap Agree & Continue, read back the 10-digit number, and run
+  callme pair <number>
+
+Never guess a number — it is a credential, and a wrong one rings a stranger.
+EOF
+    exit 5
+  fi
+  printf '%s' "$n"
+}
+
+do_pair() {
+  need_jq
+  local n; n=$(norm "${1:-}")
+  valid_number "$n" || { echo "callme pair needs the 10-digit number from the app (got '${1:-}')" >&2; exit 6; }
+  mkdir -p "$CONF_DIR"; chmod 700 "$CONF_DIR" 2>/dev/null || true
+  local prev='{}'; [ -f "$USER_CONF" ] && prev=$(cat "$USER_CONF")
+  printf '%s' "$prev" | jq --arg n "$n" --arg d "$(display "$n")" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '. + {version:1, user_number:$n, display:$d, source:"cli-pair", updated_at:$t} | del(.api)' \
+    > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
+  chmod 600 "$USER_CONF"
+  echo "paired with $(display "$n") (stored in $USER_CONF)"
+
+  # Ring, don't text. A voice answer proves the entire loop in one shot — push
+  # delivery, CallKit, audio both ways, transcription — and it is the moment the
+  # product sells itself. The text is only the fallback.
+  echo "ringing your phone now — answer it and say anything back"
+  local rc=0
+  # do_call `exit`s on no-answer, which under `set -e` would kill this script:
+  # run it in a subshell so we can catch the code and fall back. Uncaptured, so
+  # the transcript streams live.
+  (
+    AIPHONE_TIMEOUT="${AIPHONE_PAIR_TIMEOUT:-90}"
+    do_call "$n" "You're paired with your AI assistant. Say anything back so I know I can hear you."
+  ) || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "pairing confirmed by voice — I can ring you, and you can answer."
+    return 0
+  fi
+
+  # No answer, or the call failed outright. Never redial — a declined call means stop.
+  local why
+  if why=$(do_text "$n" "Paired ✅ — this AI session can now text and call you." 2>&1); then
+    echo "sent a confirmation text instead. Ask whether it arrived; if it didn't, the"
+    echo "number is wrong — re-pair with the right one rather than retrying."
+    return 0
+  fi
+  echo "callme pair: stored $(display "$n"), but NOTHING reached the phone — neither the" >&2
+  echo "call nor a text:" >&2
+  echo "  ${why:-no detail from the server}" >&2
+  echo "Either the number is wrong (ask them to read it off the app home screen again)" >&2
+  echo "or /call-me notifications are off on that phone. Do not report setup as finished." >&2
+  exit 7
+}
+
+do_unpair() {
+  rm -f "$USER_CONF"
+  echo "unpaired (removed $USER_CONF)"
+}
+
+# Standing reminder: on Claude Code the plugin's Stop hook normally only nudges
+# sessions that already used /call-me. A human who is usually away wants the
+# nudge in EVERY session, including ones that would never mention /call-me.
+do_remind() {
+  need_jq
+  case "${1:-status}" in
+    status)
+      if [ -f "$USER_CONF" ] && [ "$(jq -r '.always_remind // false' "$USER_CONF")" = "true" ]; then
+        echo "on — every session is reminded before it ends a turn on an open question"
+      else
+        echo "off — only sessions that use /call-me are reminded (default)"
+      fi
+      ;;
+    on|off)
+      [ -f "$USER_CONF" ] || { echo "pair a phone first: callme pair <number>" >&2; exit 6; }
+      local want=false; [ "$1" = "on" ] && want=true
+      jq --argjson v "$want" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {always_remind:$v, updated_at:$t}' "$USER_CONF" \
+        > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
+      chmod 600 "$USER_CONF"
+      do_remind status
+      ;;
+    *) echo "usage: callme remind [on|off|status]" >&2; exit 1;;
+  esac
+}
+
+# Inbound transport. Two ways the phone's messages reach a live Claude session:
+# the plugin's inbox monitor (a process per session, prints a line) or the MCP
+# server pushing notifications/claude/channel down its already-open stream. The
+# channel is strictly better when available, but Claude Code only routes it for
+# servers named in that session's --channels flag, so this switch alone is not
+# enough — see `callme channel status`.
+do_channel() {
+  need_jq
+  local entry="server:plugin:call-me:callme"
+  case "${1:-status}" in
+    status)
+      if [ -f "$USER_CONF" ] && [ "$(jq -r '.channel_push // false' "$USER_CONF")" = "true" ]; then
+        echo "on — the MCP server pushes inbound messages; the inbox monitor stands down"
+      else
+        echo "off — the inbox monitor delivers inbound messages (default)"
+      fi
+      echo
+      echo "This setting alone is NOT enough. Claude Code must also:"
+      echo "  1. be started with  --channels $entry"
+      echo "  2. accept this server onto its approved channels allowlist."
+      echo
+      echo "Step 2 is the one that bites. Measured 2026-08-10 on Claude Team with"
+      echo "channelsEnabled:true in managed settings, the host still answered:"
+      echo "  \"not on the approved channels allowlist\""
+      echo "The approved list ships from Anthropic and held only their own channel"
+      echo "plugins (discord, telegram, fakechat, imessage). An org admin can widen"
+      echo "it with allowedChannelPlugins in managed settings, but that keys on"
+      echo "{marketplace, plugin} — so it only works once /call-me is channel-enabled"
+      echo "as an installed marketplace plugin, not as a local server: entry."
+      echo
+      echo "VERIFY before trusting it: start a session with the flag and"
+      echo "CALLME_CHANNEL_SELFTEST=1 in the MCP server's env. If no self-test"
+      echo "message appears, the channel is not routed — turn this back off, because"
+      echo "while it is on the inbox monitor stands down and inbound is LOST."
+      ;;
+    on|off)
+      [ -f "$USER_CONF" ] || { echo "pair a phone first: callme pair <number>" >&2; exit 6; }
+      local want=false; [ "$1" = "on" ] && want=true
+      jq --argjson v "$want" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {channel_push:$v, updated_at:$t}' "$USER_CONF" \
+        > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
+      chmod 600 "$USER_CONF"
+      do_channel status
+      ;;
+    *) echo "usage: callme channel [on|off|status]" >&2; exit 1;;
+  esac
+}
+
+# Grace period: how long a parked question waits at the keyboard before the
+# Claude Code waiter monitor wakes the model to phone the human. Most questions
+# are answered by someone sitting right there, and ringing them for those is how
+# a reachability feature turns into a nuisance.
+do_grace() {
+  need_jq
+  local current=120
+  [ -f "$USER_CONF" ] && current=$(jq -r '.answer_grace_s // 120' "$USER_CONF")
+  case "${1:-status}" in
+    status)
+      if [ "$current" = "0" ]; then
+        echo "0s — no wait; reach out the moment a turn ends on an open question"
+      else
+        echo "${current}s — wait this long for a keyboard answer, then phone them"
+      fi
+      ;;
+    *[!0-9]*|"") echo "usage: callme grace [seconds|status]  (0 = no wait)" >&2; exit 1;;
+    *)
+      [ -f "$USER_CONF" ] || { echo "pair a phone first: callme pair <number>" >&2; exit 6; }
+      jq --argjson v "$1" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {answer_grace_s:$v, updated_at:$t}' "$USER_CONF" \
+        > "$USER_CONF.tmp" && mv "$USER_CONF.tmp" "$USER_CONF"
+      chmod 600 "$USER_CONF"
+      do_grace status
+      ;;
+  esac
+}
+
+do_number() {
+  local n; n=$(require_number)
+  if [ "${1:-}" = "--raw" ]; then printf '%s\n' "$n"; else display "$n"; echo; fi
+}
+
+# --- App Store onboarding ---------------------------------------------------
+
+# --- BEGIN QR MATRIX (generated by scripts/gen-appstore-qr.py) ---
+APPSTORE_URL='https://apps.apple.com/app/id6789575165'
+QR_MATRIX='0000000000000000000000000000000000000
+0000000000000000000000000000000000000
+0000000000000000000000000000000000000
+0000000000000000000000000000000000000
+0000111111100111100111111011111110000
+0000100000100000100100101010000010000
+0000101110100010101001001010111010000
+0000101110100111100110100010111010000
+0000101110100000010100100010111010000
+0000100000101100000110010010000010000
+0000111111101010101010101011111110000
+0000000000000000000001111000000000000
+0000100101101110010000010101000000000
+0000110111000000011001101111010010000
+0000010100111001010010110111011100000
+0000100110000110110110001110001100000
+0000101110100010101001001111010110000
+0000101011000101100011111100000000000
+0000001000111100100001100011111110000
+0000100110010101110101001001010100000
+0000010110110110011111101101000100000
+0000000011001100001001001011010010000
+0000101010110110110011000010100110000
+0000001010000011110111101111000110000
+0000100100111111001100001111101000000
+0000000000001011010000011000101110000
+0000111111100101111010101010100100000
+0000100000101100110010101000111010000
+0000101110100011001001001111100110000
+0000101110101000101011000010111100000
+0000101110100010010011011100111010000
+0000100000100111010011011100000100000
+0000111111101001000011101000110100000
+0000000000000000000000000000000000000
+0000000000000000000000000000000000000
+0000000000000000000000000000000000000
+0000000000000000000000000000000000000'
+# --- END QR MATRIX ---
+
+do_qr() {
+  local big=0 color=1
+  for a in "$@"; do
+    case "$a" in
+      --big) big=1;;
+      --mono) color=0;;
+    esac
+  done
+  # Always draw the code — half-block glyphs survive a pipe just fine, and the
+  # main caller is an agent whose stdout is never a tty. Only drop the colours.
+  if [ ! -t 1 ] || [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = "dumb" ]; then
+    color=0
+  fi
+  awk -v big="$big" -v color="$color" '
+    { rows[NR] = $0 } END {
+      for (y = 1; y <= NR; y += 2) {
+        top = rows[y]; bot = (y + 1 <= NR) ? rows[y + 1] : ""
+        line = ""
+        for (x = 1; x <= length(top); x++) {
+          t = substr(top, x, 1); b = (x <= length(bot)) ? substr(bot, x, 1) : "0"
+          if (t == "1") g = (b == "1") ? "\342\226\210" : "\342\226\200"
+          else          g = (b == "1") ? "\342\226\204" : " "
+          line = line g; if (big == 1) line = line g
+        }
+        if (color == 1) printf "\033[38;5;16m\033[48;5;231m%s\033[0m\n", line
+        else print line
+      }
+    }' <<< "$QR_MATRIX"
+  echo "$APPSTORE_URL"
+}
+
+do_setup() {
+  local n; n=$(resolve_number)
+  # The CLI is the fallback door, not the good one. If this machine has Claude
+  # Code, an agent that got here by copying this script took a wrong turn — say
+  # so at the exact moment it is looking, because it will not go back and reread
+  # a README. (An agent CAN install the plugin itself; slash commands are only
+  # for a human typing.)
+  if command -v claude >/dev/null 2>&1; then
+    cat <<'EOF'
+--- FOR YOU, THE AGENT: this machine has Claude Code, so install the PLUGIN ---
+
+This CLI works, but on a Claude Code host it is the lesser door: the plugin also
+gives you call/text/reply tools, delivers their phone replies back into a live
+session, and installs a Stop hook that catches you ending a turn on a question.
+You can install it yourself, right now, with Bash — no slash commands needed:
+
+    claude plugin marketplace add radres/call-me
+    claude plugin install call-me@call-me
+    claude plugin enable call-me@call-me   # REQUIRED — install leaves it DISABLED
+    claude plugin list                     # expect: call-me@call-me   ✔ enabled
+
+Do not drop the enable line. `install` writes "call-me@call-me": false into
+settings.json; a disabled plugin exposes NO tools, so skipping it looks like a
+clean install that then silently never works.
+
+Then tell them to RESTART Claude Code (not /reload-plugins — that command is not
+yours to run, and the monitor needs a fresh session). Keep using this CLI in the
+meantime; pairing carries over, it is the same ~/.aiphone/config.json.
+
+EOF
+  fi
+  cat <<EOF
+Show this to your human — it's how they get set up (takes a minute):
+
+1. Install "/call-me" on their iPhone — point the camera at this:
+EOF
+  echo
+  do_qr "$@"
+  cat <<EOF
+
+2. Open the app, tap Agree & Continue — it shows a 10-digit number.
+3. They read the number back to you.
+4. Tell them their phone is about to ring, then run:  callme pair <that number>
+   Pairing RINGS the phone and waits for them to speak — that answer is the
+   proof the whole loop works. If nobody picks up it falls back to a text.
+
+Then \`callme text "hi"\` lands on their phone and \`callme call "question"\`
+rings it and returns what they say.
+
+--- FOR YOU, THE AGENT: finish the job, don't stop at pairing ---
+
+Pairing only makes you ABLE to reach them. These steps make you actually DO it,
+in future sessions, without them asking again. Do all of it now:
+
+A. Ask them one question: "How often are you away from the keyboard while I
+   work — rarely, sometimes, or usually?" Their answer sets the next step.
+
+B. If they said sometimes or usually, turn on the standing reminder:
+       callme remind on
+   Without this, the Claude Code Stop hook only nudges sessions that already
+   used /call-me — so a session that never thinks to mention it stays silent,
+   which is exactly the session where they miss you asking.
+
+C. Write a standing rule into their user-level instructions
+   (~/.claude/CLAUDE.md, or AGENTS.md for other agents). Read the file first
+   and append to it — never overwrite. Use their answer from A:
+
+       ## Reaching me
+       I'm reachable on my phone through /call-me. When you need a decision, an
+       answer, or input from me, contact me instead of stopping with the
+       question in your final message — once your turn ends you are asleep and
+       cannot reach me. That includes parking it in an interactive question
+       widget: that just waits silently on a screen I'm not looking at, and no
+       hook can see it, so reach out yourself.
+       Text first (callme text / the text tool); call when it is blocking or
+       time-sensitive. Never hardcode my number — 'callme number' reads it.
+       [rarely]    I'm usually at the keyboard, so only reach out if I'll be gone a while.
+       [sometimes] I'm away maybe half the time. Text me and keep working.
+       [usually]   I'm mostly AFK. Assume I won't see the terminal: always reach out.
+
+D. Verify it end to end, don't assume. If the pairing call was answered, this is
+   already done — the transcript IS the proof. Only if it went unanswered:
+       callme text "Setup done — this is what a message from your agent looks like."
+   Ask them whether it arrived. If it did not, the number is wrong: re-pair.
+
+E. Tell them what they can change later: 'callme remind off' to stop the
+   every-session nudge, 'callme grace 300' to be left alone at the keyboard
+   longer before the phone rings (0 = ring the moment a turn ends), and blocking
+   a thread in the app to mute it.
+EOF
+  if valid_number "$n"; then
+    echo
+    echo "(already paired with $(display "$n") — pair again only to change phones)"
+    printf '(standing reminder is currently '
+    do_remind status
+    echo ")"
+  fi
+}
+
+# --- session (this AI's own number/thread) ----------------------------------
+
+ensure_session() {
+  [ -f "$CONF" ] && return
+  register "${AIPHONE_LABEL:-$(basename "$PWD") on $(hostname -s)}"
+}
+
+register() {
+  need_jq
+  mkdir -p "$CONF_DIR"; chmod 700 "$CONF_DIR" 2>/dev/null || true
+  local label="${1:-AI session}"
+  local resp
+  resp=$(curl -sfS -X POST "$API/sessions" -H 'content-type: application/json' \
+    -d "$(jq -cn --arg l "$label" '{label:$l}')")
+  echo "$resp" | jq --arg api "$API" '. + {api:$api, cursor:0}' > "$CONF"
+  chmod 600 "$CONF"
+  echo "registered: $(echo "$resp" | jq -r .display) (label: $label)"
+  echo "token stored in $CONF"
+}
+
+do_call() {
+  need_jq; ensure_session
+  local to text
+  if [ $# -ge 2 ]; then to=$(norm "$1"); text="$2"; else to=$(require_number); text="${1:-}"; fi
+  valid_number "$to" || { echo "callme call: bad recipient '$1'" >&2; exit 6; }
+  [ -n "$text" ] || usage
+  local timeout="${AIPHONE_TIMEOUT:-300}"
+  local body
+  body=$(jq -cn --arg t "$(conf session_token)" --arg to "$to" --arg x "$text" \
+    --argjson w "$timeout" '{session_token:$t, to:$to, text:$x, timeout_s:$w}')
+  # +30s curl budget over the server-side timeout
+  local resp
+  resp=$(curl -sS --max-time "$((timeout + 30))" -X POST "$API/calls" \
+    -H 'content-type: application/json' -d "$body")
+  local status
+  status=$(echo "$resp" | jq -r '.status // "error"')
+  case "$status" in
+    completed)
+      echo "ANSWER: $(echo "$resp" | jq -r .transcript)";;
+    missed|declined|timeout)
+      echo "NO ANSWER ($status) — consider 'callme text' instead" >&2; exit 3;;
+    *)
+      echo "call failed: $resp" >&2; exit 4;;
+  esac
+}
+
+do_text() {
+  need_jq; ensure_session
+  local to text
+  if [ $# -ge 2 ]; then to=$(norm "$1"); text="$2"; else to=$(require_number); text="${1:-}"; fi
+  valid_number "$to" || { echo "callme text: bad recipient '$1'" >&2; exit 6; }
+  [ -n "$text" ] || usage
+  local resp
+  resp=$(curl -sfS -X POST "$API/messages" -H 'content-type: application/json' \
+    -d "$(jq -cn --arg t "$(conf session_token)" --arg to "$to" --arg b "$text" \
+      '{session_token:$t, to:$to, body:$b}')")
+  # A 2xx only means the server stored it. A phone with notifications off shows
+  # nothing, so "sent" alone would be a lie — say so and exit non-zero, which is
+  # what callers (pair's fallback) branch on. Older servers omit `delivered`.
+  if [ "$(echo "$resp" | jq -r '.delivered // true')" = "false" ]; then
+    echo "sent, but NOT shown on their phone: $(echo "$resp" | jq -r '.notice // ""')" >&2
+    return 7
+  fi
+  echo "sent"
+}
+
+fetch_events() { # $1=wait seconds
+  local cursor resp
+  cursor=$(conf cursor)
+  resp=$(curl -sfS --max-time "$(( $1 + 10 ))" -G "$API/sessions/events" \
+    --data-urlencode "session_token=$(conf session_token)" \
+    --data-urlencode "cursor=$cursor" --data-urlencode "wait=$1")
+  local new_cursor
+  new_cursor=$(echo "$resp" | jq -r .cursor)
+  jq --argjson c "$new_cursor" '.cursor = $c' "$CONF" > "$CONF.tmp" \
+    && mv "$CONF.tmp" "$CONF" && chmod 600 "$CONF"
+  echo "$resp" | jq -c '.events[]'
+}
+
+do_title() {
+  need_jq; ensure_session
+  curl -sfS -X POST "$API/sessions/label" -H 'content-type: application/json' \
+    -d "$(jq -cn --arg t "$(conf session_token)" --arg l "$1" \
+      '{session_token:$t, label:$l}')" > /dev/null
+  echo "titled: $1"
+}
+
+do_listen() {
+  need_jq; ensure_session
+  echo "listening as $(conf display) — waiting for an event..." >&2
+  while true; do
+    local out
+    out=$(fetch_events 50)
+    if [ -n "$out" ]; then
+      echo "$out" | jq -r '"[\(.type)] \(.payload | tostring)"'
+      exit 0   # exit on first event → background-task notification fires
+    fi
+  done
+}
+
+do_events() {
+  need_jq; ensure_session
+  fetch_events 0 | jq -r '"[\(.type)] \(.payload | tostring)"'
+}
+
+do_prune() { # drop per-session state files older than 30 days
+  local n=0
+  for f in "$CONF_DIR"/claude-session-*.json "$CONF_DIR"/claude-monitor-*.json \
+           "$CONF_DIR"/claude-channel-*.json; do
+    [ -f "$f" ] || continue
+    if [ -z "$(find "$f" -mtime -30 2>/dev/null)" ]; then rm -f "$f"; n=$((n+1)); fi
+  done
+  chmod 700 "$CONF_DIR" 2>/dev/null || true
+  chmod 600 "$CONF_DIR"/*.json 2>/dev/null || true
+  echo "pruned $n stale state file(s)"
+}
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  setup)    do_setup;;
+  qr)       do_qr "$@";;
+  pair)     [ $# -ge 1 ] || usage; do_pair "$1";;
+  unpair)   do_unpair;;
+  remind)   do_remind "${1:-status}";;
+  grace)    do_grace "${1:-status}";;
+  channel)  do_channel "${1:-status}";;
+  number)   do_number "${1:-}";;
+  register) register "${1:-AI session}";;
+  call)     [ $# -ge 1 ] || usage; do_call "$@";;
+  text)     [ $# -ge 1 ] || usage; do_text "$@";;
+  listen)   do_listen;;
+  events)   do_events;;
+  title)    [ $# -ge 1 ] || usage; do_title "$1";;
+  whoami)   need_jq; ensure_session; jq '{session_number, display, api}' "$CONF";;
+  status)   curl -sfS "$API/healthz"; echo;;
+  prune)    do_prune;;
+  *)        usage;;
+esac

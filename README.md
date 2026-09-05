@@ -1,4 +1,4 @@
-# /call-me — your AI can call you
+# callme — your AI can call you
 
 Your AI agents ring your actual iPhone, speak their question aloud, and get
 your spoken answer back as text — or just text you. Works from any AI that
@@ -6,11 +6,15 @@ speaks MCP; nothing to install.
 
 ## 1. Get the app
 
-**[/call-me on the App Store](https://serdaroztetik.com/aiphone/go/readme)**.
+**[callme on the App Store](https://serdaroztetik.com/aiphone/go/readme)**.
 No registration, no email. Open it, tap *Agree & Continue*, and it shows your
-personal **/call-me number**: 10 digits, and all an agent needs to reach you.
+personal **callme number**: 10 digits, and all an agent needs to reach you.
 
 ## 2. Connect your AI (MCP)
+
+Pairing is stored locally in `~/.aiphone/config.json`. An MCP server running on
+this computer can read that file automatically; the hosted HTTP endpoint cannot
+read files on your computer and therefore needs the number supplied separately.
 
 One server, every MCP client — no API key, no OAuth:
 
@@ -38,11 +42,18 @@ claude mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
 }
 ```
 
-**Codex CLI**
+**Codex CLI — use the local paired MCP server**
 
 ```bash
-codex mcp add call-me --url https://serdaroztetik.com/aiphone/mcp
+cd /absolute/path/to/call-me
+codex mcp remove call-me  # only if the hosted entry is already configured
+codex mcp add callme -- node "$PWD/codex/mcp.mjs"
+codex mcp list
 ```
+
+The local `callme` MCP server reads `~/.aiphone/config.json` for every call and
+text, so no number needs to be typed into the Codex conversation. Use its
+`identity` tool to verify the paired phone.
 
 **Gemini CLI**
 
@@ -65,11 +76,14 @@ with the URL above (no authentication).
 
 **claude.ai** — Settings → Connectors → Add custom connector → the URL above.
 
-Anything else that speaks MCP — add a streamable-HTTP server pointing at
-the URL above.
+Anything else that speaks MCP — add a streamable-HTTP server pointing at the
+URL above, then provide the recipient number through that client's pairing or
+configuration flow. A hosted MCP connection cannot see this computer's
+`~/.aiphone/config.json`.
 
-**Then tell your AI once:** *"My /call-me number is `<YOUR_10_DIGITS>` — remember
-it."* That's the whole setup.
+For the local Codex/Claude integrations, pairing once writes the shared local
+config and the MCP tools use it automatically. For hosted clients, tell the AI
+the number or use that client's explicit pairing flow; never guess it.
 
 | Tool | What it does |
 |---|---|
@@ -98,7 +112,7 @@ curl -sS https://serdaroztetik.com/aiphone/ring \
 
 ```json
 {"status":"completed","transcript":"Yes, ship it",
- "session_token":"curl_1a2b...","from":"7412163257"}
+ "session_token":"curl_1a2b...","from":"<CALLER_NUMBER>"}
 ```
 
 `status` is one of `completed`, `missed`, `declined`, `timeout`, `failed`.
@@ -187,6 +201,40 @@ agent itself.
 herdr plugin install radres/herdr-plugin-call-me
 herdr plugin pane open --plugin radres.call-me --entrypoint pair
 ```
+
+## 7. Optional: Omarchy plugin
+
+> Is your server down at night? Get your agent to call you. Flat $5 fee,
+> infinite calls with the /call-me app. Calls have never been easier than just
+> making an HTTP request.
+
+The Omarchy integration adds a one-time setup panel. It reads the paired number
+from `~/.aiphone/config.json`, keeps AI instructions in expandable sections
+with copy actions, and keeps real text/call controls behind **Test calls**.
+Selecting an instruction block copies the selection automatically and shows a
+brief clipboard confirmation. Up/Down navigate controls; Right expands the
+highlighted section and Left collapses it.
+There is no persistent bar icon; day-to-day use happens through the AI/MCP
+tools.
+Pair the number in the iPhone app first; the panel never overwrites the config
+without an explicit pairing action.
+
+Install from the repository:
+
+```bash
+omarchy plugin add https://github.com/radres/call-me --enable
+# Then search `/call-me` with Super+Space to open setup.
+```
+
+Remove it safely with:
+
+```bash
+omarchy plugin remove radres.call-me
+```
+
+The plugin's test controls make real requests. Use **Text me** to verify
+delivery before trying a voice call. Full plugin details are in
+[`omarchy/README.md`](omarchy/README.md).
 
 ## How it works
 

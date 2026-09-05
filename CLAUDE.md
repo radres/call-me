@@ -1,4 +1,4 @@
-# /call-me — your AI can call you
+# callme — your AI can call you
 
 Your AI agents ring your actual iPhone, speak their question aloud, and get
 your spoken answer back as text — or just text you. Works from any AI that
@@ -6,11 +6,15 @@ speaks MCP; nothing to install.
 
 ## 1. Get the app
 
-**[/call-me on the App Store](https://serdaroztetik.com/aiphone/go/readme)**.
+**[callme on the App Store](https://serdaroztetik.com/aiphone/go/readme)**.
 No registration, no email. Open it, tap *Agree & Continue*, and it shows your
-personal **/call-me number**: 10 digits, and all an agent needs to reach you.
+personal **callme number**: 10 digits, and all an agent needs to reach you.
 
 ## 2. Connect your AI (MCP)
+
+Pairing is stored locally in `~/.aiphone/config.json`. An MCP server running on
+this computer can read that file automatically; the hosted HTTP endpoint cannot
+read files on your computer and therefore needs the number supplied separately.
 
 One server, every MCP client — no API key, no OAuth:
 
@@ -38,11 +42,18 @@ claude mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
 }
 ```
 
-**Codex CLI**
+**Codex CLI — use the local paired MCP server**
 
 ```bash
-codex mcp add call-me --url https://serdaroztetik.com/aiphone/mcp
+cd /absolute/path/to/call-me
+codex mcp remove call-me  # only if the hosted entry is already configured
+codex mcp add callme -- node "$PWD/codex/mcp.mjs"
+codex mcp list
 ```
+
+The local `callme` MCP server reads `~/.aiphone/config.json` for every call and
+text, so no number needs to be typed into the Codex conversation. Use its
+`identity` tool to verify the paired phone.
 
 **Gemini CLI**
 
@@ -65,11 +76,14 @@ with the URL above (no authentication).
 
 **claude.ai** — Settings → Connectors → Add custom connector → the URL above.
 
-**Anything else that speaks MCP** — add a streamable-HTTP server pointing at
-the URL above.
+**Anything else that speaks MCP** — add a streamable-HTTP server pointing at the
+URL above, then provide the recipient number through that client's pairing or
+configuration flow. A hosted MCP connection cannot see this computer's
+`~/.aiphone/config.json`.
 
-Then tell your AI once: *"My /call-me number is `<YOUR_10_DIGITS>` — remember
-it."* That's the whole setup.
+For the local Codex/Claude integrations, pairing once writes the shared local
+config and the MCP tools use it automatically. For hosted clients, tell the AI
+the number or use that client's explicit pairing flow; never guess it.
 
 | Tool | What it does |
 |---|---|
@@ -98,7 +112,7 @@ curl -sS https://serdaroztetik.com/aiphone/ring \
 
 ```json
 {"status":"completed","transcript":"Yes, ship it",
- "session_token":"curl_1a2b...","from":"7412163257"}
+ "session_token":"curl_1a2b...","from":"<CALLER_NUMBER>"}
 ```
 
 `status` is one of `completed`, `missed`, `declined`, `timeout`, `failed`.

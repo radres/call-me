@@ -15717,7 +15717,9 @@ import { execFileSync } from "node:child_process";
 import { readFileSync as readFileSync2 } from "node:fs";
 var api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
 var projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
-var SETUP_COPY_REV = "2026-08-09";
+var clientName = process.env.CALLME_CLIENT_NAME || "Claude";
+var sessionLabel = process.env.CALLME_SESSION_LABEL || `${clientName}: ${projectName}`;
+var SETUP_COPY_REV = "2026-09-04";
 var PAIR_CALL_TIMEOUT_S = 90;
 var stateFile = stateFileFor();
 var stateKey = (process.env.CLAUDE_CODE_SESSION_ID || "").replace(/[^A-Za-z0-9-]/g, "") || (process.env.CLAUDE_PROJECT_DIR || process.cwd()).replace(/[^A-Za-z0-9]+/g, "-");
@@ -15743,24 +15745,24 @@ var mcp = new Server(
     // In channel-only mode the plugin's own server is already carrying the full
     // instructions; repeating them here would put two copies in the model's
     // context. Say only what is true of THIS server: it delivers inbound.
-    instructions: CHANNEL_ONLY ? "Messages from the paired human arrive as /call-me channel messages. Treat them as user messages for this session and answer them; use the /call-me reply tool to respond by text." : "Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. If the human might simply be at the keyboard, call wait_for_answer instead of ringing them straight away: it gives them a window you choose to answer here, and wakes you to phone them only if they stay silent. Call it, then end your turn \u2014 do not keep the turn alive waiting. Messages from the paired human arrive as inbound notifications or /call-me channel messages. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number. pair RINGS their phone to prove the loop, so tell them in one line that it is about to ring before you call pair; it blocks until they answer or it times out."
+    instructions: CHANNEL_ONLY ? "This local callme server reads the paired phone number from ~/.aiphone/config.json. Messages from the paired human arrive as callme channel messages. Treat them as user messages for this session and use the reply tool to respond by text." : "This is the local callme MCP server. When a phone is paired, read its recipient number from ~/.aiphone/config.json automatically; never ask the human to repeat it and never invent or hardcode it. If it is not paired, use setup and then pair. Reach out BEFORE you end a turn on an open question: once the turn ends you are asleep and cannot contact anyone, so a question left in your final message never gets asked. Text first, call when it is blocking or time-sensitive. If the human might simply be at the keyboard, call wait_for_answer instead of ringing them straight away: it gives them a window you choose to answer here, and wakes you to phone them only if they stay silent. Call it, then end your turn \u2014 do not keep the turn alive waiting. Messages from the paired human arrive as inbound notifications or callme channel messages. Treat them as user messages for this session. Use the reply tool for conversational replies, text for one-way updates, and call only when a spoken answer is genuinely needed. The phone shows this session as a conversation thread; once the topic is clear (and when it shifts), call set_title with a short 3-5 word title so the human can tell threads apart. If a send reports that no phone is paired, run the setup tool and show the human its output verbatim, then pair the number they read back \u2014 never guess a number. pair RINGS their phone to prove the loop, so tell them in one line that it is about to ring before you call pair; it blocks until they answer or it times out."
   }
 );
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: CHANNEL_ONLY ? [] : [
     {
       name: "reply",
-      description: "Reply by text to the paired human in the /call-me conversation",
+      description: "Reply by text to the paired human. The recipient is read automatically from the local ~/.aiphone/config.json pairing; do not ask for a number.",
       inputSchema: textSchema("Reply text")
     },
     {
       name: "text",
-      description: "Send a non-blocking text update to the paired human's iPhone",
+      description: "Send a non-blocking text update to the paired human's iPhone. The recipient is read automatically from the local ~/.aiphone/config.json pairing.",
       inputSchema: textSchema("Text to send")
     },
     {
       name: "call",
-      description: "Call the paired human, speak a question, and wait for the transcribed answer",
+      description: "Call the paired human, speak a question, and wait for the transcribed answer. The recipient is read automatically from the local ~/.aiphone/config.json pairing.",
       inputSchema: {
         type: "object",
         properties: {
@@ -15801,7 +15803,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "pair",
-      description: "Remember the 10-digit /call-me number the human read out of the app, then RING that phone to prove the loop works and return what they say. Tell them their phone is about to ring before you call this \u2014 it blocks for up to 90s and falls back to a text if nobody answers. Every Claude session on this machine then reaches the same phone.",
+      description: "Remember the 10-digit number the human read out of the app in ~/.aiphone/config.json, then RING that phone to prove the loop works and return what they say. Tell them their phone is about to ring before you call this \u2014 it blocks for up to 90s and falls back to a text if nobody answers. Every local agent session on this machine then reaches the same phone.",
       inputSchema: {
         type: "object",
         properties: { number: { type: "string", description: "10-digit number from the app" } },
@@ -15811,7 +15813,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "identity",
-      description: "Show this Claude session's /call-me routing number and the paired phone",
+      description: "Show this agent session's routing number and the paired phone read from the local ~/.aiphone/config.json file.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false }
     },
     {
@@ -15919,7 +15921,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       return toolResult(JSON.stringify({
         session_number: session.session_number,
         display: session.display,
-        label: `Claude: ${projectName}`,
+        label: sessionLabel,
         paired_phone: paired.number ? displayNumber(paired.number) : null,
         paired_source: paired.source,
         // Also keeps SETUP_COPY_REV referenced so esbuild cannot tree-shake the
@@ -16089,9 +16091,14 @@ Already paired with ${displayNumber(paired.number)} \u2014 pair again only to ch
   ].join("\n").trimEnd();
 }
 function notPaired() {
-  return toolResult(`${NOT_PAIRED_HINT}
+  return toolResult(
+    `${NOT_PAIRED_HINT}
 
-${setupText()}`, true);
+The local MCP server checks ~/.aiphone/config.json on every send.
+
+${setupText()}`,
+    true
+  );
 }
 async function placeCall(to, question, timeoutS) {
   const session = await ensureSession();

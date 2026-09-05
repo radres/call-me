@@ -1,4 +1,4 @@
 interface:
-  display_name: "/call-me"
+  display_name: "callme"
   short_description: "Call and message your human from an AI task"
   default_prompt: "Use $callme to contact me on my iPhone and handle my reply."
