@@ -39,7 +39,7 @@ EOF
   exit 1
 }
 
-need_jq() { command -v jq >/dev/null || { echo "callme needs jq (brew install jq)" >&2; exit 2; }; }
+need_jq() { command -v jq >/dev/null || { echo "callme needs jq (https://jqlang.github.io/jq/download/)" >&2; exit 2; }; }
 
 conf() { jq -r ".$1" "$CONF"; }
 
