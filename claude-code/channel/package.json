@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild channel.mjs --bundle --platform=node --format=esm --outfile=../dist/channel.mjs",
+    "build": "esbuild channel.mjs --bundle --platform=node --format=esm --minify --outfile=../dist/channel.mjs",
     "check": "node --check channel.mjs"
   },
   "dependencies": {
