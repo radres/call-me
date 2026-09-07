@@ -58,6 +58,28 @@ Then tell them to **restart Claude Code** (`/reload-plugins` is not yours to run
 and the monitor needs a fresh session). Pairing carries over either way — it is
 the same `~/.aiphone/config.json`.
 
+### Codex import troubleshooting
+
+Codex can import the Claude plugin, but some builds leave
+`${CLAUDE_PLUGIN_ROOT}` unresolved in the plugin MCP command. The symptom is
+`MCP client for callme failed to start` with the connection closing during the
+initialize response, while `codex mcp get callme` still shows the literal
+placeholder.
+
+Shadow the plugin-provided entry with a user-level entry that points at the
+installed bundle:
+
+```sh
+CALLME_CODEX_ROOT=$(find "${CODEX_HOME:-$HOME/.codex}/plugins/cache/call-me/call-me" \
+  -mindepth 1 -maxdepth 1 -type d -print | head -1)
+codex mcp add callme \
+  --env "CALLME_PLUGIN_ROOT=$CALLME_CODEX_ROOT" \
+  -- node "$CALLME_CODEX_ROOT/dist/channel.mjs"
+```
+
+Start a fresh Codex session and verify that all MCP servers finish loading.
+Recreate the override after a plugin upgrade if the cached version path changes.
+
 ## Is the human set up yet?
 
 The paired number lives in `~/.aiphone/config.json`. `callme number` prints it;
