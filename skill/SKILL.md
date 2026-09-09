@@ -11,6 +11,25 @@ Your human's iPhone runs the /call-me app. It gave them a **user number**
 (10 digits, e.g. `584-158-6160`) — that's all you need to ring their actual
 phone and get a spoken answer.
 
+## First setup and saved pairing
+
+When pairing is missing, always show a clickable link:
+[Download Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165).
+Tell the user to open **My Number** in the app. Never show only the app name or
+substitute the demo number.
+
+The number is all that is required. Do not add OAuth, login, or a verification
+code. On a local host, read `~/.aiphone/config.json` before asking for the
+number. `callme pair <number>` saves it with owner-only permissions, outside
+the installed plugin so upgrades preserve it. Pass the saved `user_number`
+when using the remote MCP tools.
+
+Check pairing before registering a sender session or making a network request.
+An unpaired client must show the download link even when the server is offline.
+If a tool returns `setup_required`, include its download link and instructions.
+On hosts without local file access, reuse the number supplied in the current
+chat, but do not claim it has been permanently saved across chats.
+
 Prefer the host's /call-me tools when available. Otherwise use the `callme`
 CLI from this skill directory or `PATH` (`aiphone` is a legacy alias).
 
@@ -99,8 +118,8 @@ phone; a code to point the camera at beats retyping a URL. Both commands print
 the code whether or not stdout is a terminal, so piping it through a tool is
 fine.
 
-1. They install /call-me: https://serdaroztetik.com/aiphone/go/skill
-2. They open it, tap *Agree & Continue*, and it shows their 10-digit number.
+1. They install [Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165).
+2. They open *My Number* in the app to find their 10-digit number.
 3. They read the number back to you.
 4. Tell them their phone is about to ring, then run `callme pair <number>` (or the
    channel's `pair` tool). It stores the number and **rings the phone**, blocking
