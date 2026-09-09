@@ -204,44 +204,16 @@ herdr plugin pane open --plugin radres.call-me --entrypoint pair
 
 ## 7. Optional: Omarchy plugin
 
-> Is your server down at night? Get your agent to call you. Flat $5 fee,
-> infinite calls with the /call-me app. Calls have never been easier than just
-> making an HTTP request.
-
-The Omarchy integration adds a one-time setup panel. It reads the paired number
-from `~/.aiphone/config.json`, keeps AI instructions in expandable sections
-with copy actions, and keeps real text/call controls behind **Test calls**.
-Selecting an instruction block copies the selection automatically and shows a
-brief clipboard confirmation. Up/Down navigate controls; Right expands the
-highlighted section and Left collapses it.
-There is no persistent bar icon; day-to-day use happens through the AI/MCP
-tools.
-Pair the number in the iPhone app first; the panel never overwrites the config
-without an explicit pairing action.
-
-Install:
+The Omarchy setup panel lives in its own repository so the marketplace installs
+only the panel: [radres/omarchy-plugin-call-me](https://github.com/radres/omarchy-plugin-call-me).
 
 ```bash
-omarchy plugin add https://github.com/radres/call-me.git --enable
-```
-
-Then register the Super+Space launcher entry:
-
-```bash
+omarchy plugin add https://github.com/radres/omarchy-plugin-call-me.git --enable
 bash ~/.config/omarchy/plugins/radres.call-me/install-launcher.sh
 ```
 
-Search `/call-me`, `callme`, or `phone` with Super+Space to open setup.
-
-Remove:
-
-```bash
-omarchy plugin remove radres.call-me
-```
-
-The plugin's test controls make real requests. Use **Text me** to verify
-delivery before trying a voice call. Treat the 10-digit number as a bearer
-credential.
+Remove with `omarchy plugin remove radres.call-me`. Details, requirements and
+what the panel sends over the network are in that repository's README.
 
 ## How it works
 
