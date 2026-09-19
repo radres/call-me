@@ -228,6 +228,13 @@ no reply, or the answer is genuinely time-sensitive and blocking.
      say so in a follow-up text.
    - Keep questions short (≤600 chars), self-contained, answerable in one
      sentence. Include the options in the question.
+   - `timeout_seconds`: the MCP tool schema advertises max 900, but the server
+     rejects anything over **300** with HTTP 422 (`less_than_equal`). Never pass
+     more than 300 (verified 2026-09-19). The same 422 enforces the 600-char
+     question limit, so an over-long question costs a whole round trip.
+   - Anything the human must read back digit by digit (IBAN, account number,
+     one-time code, long URL) goes in a `text`, not the spoken `question`.
+     Speech transcription garbles them. Text first, then call and point at it.
 5. If a call is declined, do NOT retry the call — send a text instead.
 
 ### If you text and keep working, park a check-back

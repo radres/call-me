@@ -290,6 +290,24 @@ threads apart — the `set_title` tool on channel-enabled hosts, otherwise:
 callme title "flaky test fix"
 ```
 
+> **Known issue (verified 2026-08-27, serdar's Mac).** The `set_title` MCP tool
+> can reject *every* label with `422 "that label impersonates a company or
+> authority — pick a label that describes your agent instead"`. Reproduced with
+> four unrelated labels ("MCP-792 verified, deploy?", "Linear ticket
+> verification", "Claude — ticket verifier", "ticket verifier agent"), so the
+> guard is over-firing, not reacting to the wording. Don't burn turns retrying
+> variants — skip the title and place the call; `call` itself works fine.
+>
+> Also: `call`'s `question` is capped at **600 characters** of spoken text and
+> returns a hard 422 above it. Draft the question short rather than trimming
+> after a rejection. `timeout_seconds` is capped at **300** by the server even
+> though the MCP schema advertises 900 (verified 2026-09-19) — the same 422
+> reports both violations at once.
+>
+> Never put digits the human must read back (IBAN, account number, one-time
+> code, long URL) in the spoken `question`. Send them with `text` first, then
+> call and point at the text; speech transcription mangles them.
+
 ## Manual listen fallback
 
 `callme listen` long-polls and exits when an event arrives (user text,
