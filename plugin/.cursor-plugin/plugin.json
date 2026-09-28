@@ -1,0 +1,13 @@
+{
+  "name": "call-me",
+  "version": "1.0.0",
+  "description": "Let your agent ring your iPhone, ask its question out loud and get your spoken answer back as text, or just text you. A voice relay for when you are away from the keyboard, not a voice assistant: your agent does the thinking.",
+  "author": {
+    "name": "Serdar Oztetik"
+  },
+  "homepage": "https://github.com/radres/call-me/tree/main/plugin",
+  "repository": "https://github.com/radres/call-me",
+  "license": "MIT",
+  "keywords": ["phone", "call", "sms", "notifications", "human-in-the-loop", "approval", "ios", "mcp"],
+  "logo": "assets/logo.png"
+}

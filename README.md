@@ -91,6 +91,11 @@ in [llms-install.md](llms-install.md).
 }
 ```
 
+Or install the plugin in [`plugin/`](plugin/), which adds a skill telling the
+agent when to call and when to text. It is a standard
+[Agent Plugin](https://agent-plugins.org) with a Cursor manifest, so any client
+that loads Agent Plugins can use it too.
+
 **ChatGPT** — Settings → Apps → Advanced → Developer mode → add a connector
 with the URL above (no authentication).
 
