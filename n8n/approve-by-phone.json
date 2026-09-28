@@ -1,0 +1,420 @@
+{
+  "name": "Approve AI agent actions by phone call with Call Me MCP and OpenAI",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Approve an action by phone call\n\nSome steps should not run until a person says yes: a deploy, a refund, an email to a customer. This workflow rings that person's iPhone, asks out loud, and carries on from the spoken answer.\n\nCall Me is only the phone line. The AI Agent writes the question and decides what the answer means. Call Me rings the phone, reads the question aloud and hands back what the person said, as text.\n\n### How it works\n1. **Configure me** holds the Call Me number, a sender name and the request to approve.\n2. **Ask by phone** is an AI Agent with the Call Me MCP server as its tool. It places one call, waits for the answer and returns `approved`, `rejected` or `no_answer` plus the transcript.\n3. **Route by answer** sends each outcome down its own branch. If nobody picks up, **Text the question instead** sends it as a push message in the same thread on the phone.\n\n### Setup\n1. Add your OpenAI credential to **OpenAI Chat Model**.\n2. Run the workflow as it is. The number is the Call Me demo line, 5550001234, which answers \"yes\" by itself, so no phone rings.\n3. Install Call Me on your iPhone and copy the 10-digit number from **My Number** into **Configure me**. Reaching a real phone needs an active Call Me subscription.\n4. Replace **Do the approved action** with your real step.\n\n### Customization tips\n- Swap the manual trigger for a webhook, a schedule or an Execute Workflow Trigger, so other workflows can ask by phone.\n- Keep questions short and easy to answer out loud.",
+        "height": 760,
+        "width": 520,
+        "color": 1
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        -200
+      ],
+      "id": "a47f3d90-bf5c-4667-a899-3e1d77cd8487",
+      "name": "Overview"
+    },
+    {
+      "parameters": {
+        "content": "### 1. What to approve\nThe number defaults to the Call Me demo line, which answers by itself. Put your own number here when you are ready.",
+        "height": 300,
+        "width": 260,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -340,
+        -200
+      ],
+      "id": "16b59fd8-7ce3-4b3f-8b73-168109b8f13a",
+      "name": "Section: inputs"
+    },
+    {
+      "parameters": {
+        "content": "### 2. Ask by phone\nThe agent writes one yes or no question, calls it through Call Me, waits for the answer and turns it into a decision.",
+        "height": 560,
+        "width": 520,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -200
+      ],
+      "id": "012e6e41-6c96-46e7-8f9e-96a9a05d0a7c",
+      "name": "Section: ask"
+    },
+    {
+      "parameters": {
+        "content": "### 3. Act on the answer\nEach decision has its own branch. With no answer, the question goes out as a text in the same thread.",
+        "height": 560,
+        "width": 520,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        520,
+        -200
+      ],
+      "id": "ec7bff7d-4cc5-4f07-b136-1514b6bfff77",
+      "name": "Section: act"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        0
+      ],
+      "id": "b3c9015f-1109-49e2-abff-a1e21a67035d",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "673a8218-4763-4754-b887-1198dfdce8da",
+              "name": "callme_number",
+              "value": "5550001234",
+              "type": "string"
+            },
+            {
+              "id": "de71503b-3139-444f-952a-9d02afcb3b39",
+              "name": "from_label",
+              "value": "n8n release workflow",
+              "type": "string"
+            },
+            {
+              "id": "2adfe5ac-2709-4c90-9adb-98296c02b9cc",
+              "name": "request",
+              "value": "Deploy release 2.4.0 to production. All 212 tests passed.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -260,
+        0
+      ],
+      "id": "ef8d3470-b2b4-4c71-a711-bdb149ed94a6",
+      "name": "Configure me"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Request to approve: {{ $json.request }}\nCall Me number (use as to): {{ $json.callme_number }}\nfrom_label: {{ $json.from_label }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You get one request that needs a person's yes or no.\n\n1. Call the person once with the `call` tool. `to` is the Call Me number you were given, `from_label` is the sender name you were given, and `question` is one short spoken question under 300 characters that says what will happen and asks yes or no. Never put codes, long numbers or links in the question.\n2. If the result has status \"ringing\", call `poll_result` with its `call_id` and `session_token`. Repeat while it is still ringing, at most 6 times.\n3. Never call `call` a second time.\n\nThen decide:\n- approved: the transcript clearly says yes, go ahead, approve or similar.\n- rejected: it says no, stop, wait or asks for changes.\n- no_answer: the status is missed, declined, timeout or failed, the transcript is empty, the tool returned an error, or the answer is unclear.\n\nReturn the transcript exactly as it came back (empty string if there is none) and the `session_token` from the call result (empty string if there is none).",
+          "maxIterations": 15
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        80,
+        0
+      ],
+      "id": "2da84cbd-614e-4d77-8619-80c514b3e4bf",
+      "name": "Ask by phone"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        220
+      ],
+      "id": "1f0b1918-9b5b-43d0-8955-7d872c906a09",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://serdaroztetik.com/aiphone/mcp",
+        "serverTransport": "httpStreamable",
+        "include": "selected",
+        "includeTools": [
+          "call",
+          "poll_result"
+        ],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        160,
+        220
+      ],
+      "id": "e459dc6e-aff6-429c-85b9-dbd4457f781d",
+      "name": "Call Me MCP"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"decision\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"approved\",\n        \"rejected\",\n        \"no_answer\"\n      ]\n    },\n    \"transcript\": {\n      \"type\": \"string\"\n    },\n    \"session_token\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"decision\",\n    \"transcript\",\n    \"session_token\"\n  ],\n  \"additionalProperties\": false\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        320,
+        220
+      ],
+      "id": "ccfd8189-c7d2-489e-ad80-b38c51f9cd6b",
+      "name": "Parse decision"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "70095d9d-59a5-41c6-9733-808969ce5abc",
+                    "leftValue": "={{ $json.output.decision }}",
+                    "rightValue": "approved",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Approved"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "78d26913-a792-4b12-8497-2cc6f015eece",
+                    "leftValue": "={{ $json.output.decision }}",
+                    "rightValue": "rejected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rejected"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "73207a65-eebe-41dd-aaee-c92d80878795",
+                    "leftValue": "={{ $json.output.decision }}",
+                    "rightValue": "no_answer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "No answer"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        580,
+        0
+      ],
+      "id": "f722fcb2-14cf-4c95-a03b-f79c5c62fb90",
+      "name": "Route by answer"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        860,
+        -120
+      ],
+      "id": "fcdb5247-10ae-492d-b9f1-af6c931f5af5",
+      "name": "Do the approved action"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        860,
+        40
+      ],
+      "id": "d76e2ca9-5838-4827-9047-b1d3923c5757",
+      "name": "Log the rejection"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://serdaroztetik.com/aiphone/mcp",
+        "serverTransport": "httpStreamable",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "text"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ { to: $('Configure me').item.json.callme_number, from_label: $('Configure me').item.json.from_label, session_token: $json.output.session_token || undefined, body: 'I rang you about this and nobody answered: ' + $('Configure me').item.json.request + ' Reply yes or no.' } }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        200
+      ],
+      "id": "8aadf0bc-80e7-4aa3-9976-be616c7d69e2",
+      "name": "Text the question instead"
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Configure me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure me": {
+      "main": [
+        [
+          {
+            "node": "Ask by phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ask by phone",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Me MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "Ask by phone",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse decision": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Ask by phone",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask by phone": {
+      "main": [
+        [
+          {
+            "node": "Route by answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by answer": {
+      "main": [
+        [
+          {
+            "node": "Do the approved action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log the rejection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text the question instead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
