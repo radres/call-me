@@ -1,0 +1,225 @@
+{
+  "identifier": "radres-call-me",
+  "name": "Call Me",
+  "version": "1.0.0",
+  "description": "Your agent rings your iPhone, speaks its question and gets your spoken answer back as text, or sends you a push text. A voice relay, not a voice assistant: your agent does the thinking, Call Me only carries the question and the answer, so long tasks keep moving while you drive, train or step away.",
+  "author": "Serdar Oztetik",
+  "authorUrl": "https://github.com/radres",
+  "homepage": "https://github.com/radres/call-me",
+  "icon": "https://raw.githubusercontent.com/radres/call-me/main/assets/logo-400.png",
+  "cloudEndpoint": "https://serdaroztetik.com/aiphone/mcp",
+  "tags": [
+    "phone",
+    "iphone",
+    "voice",
+    "notifications",
+    "human-in-the-loop",
+    "approval"
+  ],
+  "tools": [
+    {
+      "name": "setup",
+      "description": "Return first-setup instructions and a clickable App Store download link when no number is available.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "title": "setupArguments"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "call",
+      "description": "Ring the human's iPhone, speak the question aloud, and return what they\n    say. Waits up to ~30s; if the result comes back status \"ringing\", follow up\n    with poll_result. On a local client, read `to` from\n    `~/.aiphone/config.json` → `user_number`; this hosted server cannot read\n    that file itself. It is a Call Me app number, not a regular phone number.\n    If missing, returns setup_required with the App Store link. Pass a previous\n    session_token to stay in the same thread on their phone.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "To"
+          },
+          "from_label": {
+            "default": "Someone's AI",
+            "title": "From Label",
+            "type": "string"
+          },
+          "session_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Token"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "callArguments"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "poll_result",
+      "description": "Check on a call that was still ringing. Waits up to ~25s for it to\n    settle; returns the final status and transcript once the human answers,\n    declines, or the ring times out (\"missed\").",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "integer"
+          },
+          "session_token": {
+            "title": "Session Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "call_id",
+          "session_token"
+        ],
+        "title": "poll_resultArguments"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "text",
+      "description": "Send a one-way text to the human's phone (push notification, no ring).\n    On a local client, read `to` from `~/.aiphone/config.json` → `user_number`;\n    this hosted server cannot read that file itself. If missing, returns\n    setup_required with the App Store link. Pass a previous session_token to\n    stay in the same thread.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "To"
+          },
+          "from_label": {
+            "default": "Someone's AI",
+            "title": "From Label",
+            "type": "string"
+          },
+          "session_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Token"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "textArguments"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "wait_for_reply",
+      "description": "Wait for the human to send something back to this session — texts and\n    voicemail transcripts arrive here. Long-polls up to wait_s (max 30s);\n    returns {events, cursor}. Pass the returned cursor next time to only see\n    new events. An empty events list just means nothing yet — poll again if\n    you are still waiting.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_token": {
+            "title": "Session Token",
+            "type": "string"
+          },
+          "cursor": {
+            "default": 0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "wait_s": {
+            "default": 25,
+            "title": "Wait S",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_token"
+        ],
+        "title": "wait_for_replyArguments"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_thread_title",
+      "description": "Name this session's conversation thread on the human's phone (e.g. the\n    project or task you are working on). Shown as the thread title in the app.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_token": {
+            "title": "Session Token",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_token",
+          "title"
+        ],
+        "title": "set_thread_titleArguments"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      }
+    }
+  ],
+  "prompts": [],
+  "resources": []
+}
