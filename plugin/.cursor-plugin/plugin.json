@@ -8,6 +8,16 @@
   "homepage": "https://github.com/radres/call-me/tree/main/plugin",
   "repository": "https://github.com/radres/call-me",
   "license": "MIT",
-  "keywords": ["phone", "call", "sms", "notifications", "human-in-the-loop", "approval", "ios", "mcp"],
-  "logo": "assets/logo.png"
+  "keywords": [
+    "phone",
+    "call",
+    "sms",
+    "notifications",
+    "human-in-the-loop",
+    "approval",
+    "ios",
+    "mcp"
+  ],
+  "logo": "assets/logo.png",
+  "mcpServers": ".mcp.json"
 }

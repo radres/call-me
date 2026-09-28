@@ -16,6 +16,7 @@ while you drive, train or walk.
 | `plugin.json` | Agent Plugins 1.0.0 manifest |
 | `mcp.json` | The hosted MCP server, `https://serdaroztetik.com/aiphone/mcp` (Streamable HTTP, no auth) |
 | `skills/call-me/SKILL.md` | When and how the agent should call or text you |
+| `.mcp.json` | The same server in Cursor's own format, which has no `type` field |
 | `.cursor-plugin/plugin.json` | Cursor manifest and logo |
 
 Nothing runs on your machine. The plugin only points your client at the hosted
