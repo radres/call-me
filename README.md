@@ -4,6 +4,10 @@ Your AI agents ring your actual iPhone, speak their question aloud, and get
 your spoken answer back as text — or just text you. Works from any AI that
 speaks MCP; nothing to install.
 
+Call Me is not a voice assistant and holds no conversation of its own. Your
+agent does the thinking; Call Me only carries its question to your phone and
+your answer back, so you can keep it working while you drive, train or walk.
+
 ## 1. Get the app
 
 **[callme on the App Store](https://serdaroztetik.com/aiphone/go/readme)**.
@@ -59,6 +63,22 @@ text, so no number needs to be typed into the Codex conversation. Use its
 
 ```bash
 gemini mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
+```
+
+**Cline** — add to Cline's MCP settings (MCP Servers → Configure; CLI:
+`~/.cline/data/settings/cline_mcp_settings.json`). Full agent-readable steps are
+in [llms-install.md](llms-install.md).
+
+```json
+{
+  "mcpServers": {
+    "call-me": {
+      "type": "streamableHttp",
+      "url": "https://serdaroztetik.com/aiphone/mcp",
+      "timeout": 120
+    }
+  }
+}
 ```
 
 **Cursor** — add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
