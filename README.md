@@ -1,4 +1,12 @@
-# callme — your AI can call you
+<p align="center">
+  <a href="https://serdaroztetik.com/aiphone/go/readme"><img src="assets/logo-rounded.png" width="180" alt="/call-me app icon"></a>
+</p>
+
+<h1 align="center">callme — your AI can call you</h1>
+
+<p align="center">
+  <a href="https://serdaroztetik.com/aiphone/go/readme"><img src="assets/app-store-badge.svg" height="60" alt="Download on the App Store"></a>
+</p>
 
 Your AI agents ring your actual iPhone, speak their question aloud, and get
 your spoken answer back as text — or just text you. Works from any AI that
