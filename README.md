@@ -8,8 +8,8 @@
   <a href="https://serdaroztetik.com/aiphone/go/readme"><img src="assets/app-store-badge.svg" height="60" alt="Download on the App Store"></a>
 </p>
 
-Your AI agents ring your actual iPhone, speak their question aloud, and get
-your spoken answer back as text — or just text you. Works from any AI that
+Your AI agents ring your actual iPhone, read you a question, an update or
+your day ahead, and get your spoken reply back as text — or just text you. Works from any AI that
 speaks MCP; nothing to install.
 
 Call Me is not a voice assistant and holds no conversation of its own. Your
@@ -120,7 +120,7 @@ the number or use that client's explicit pairing flow; never guess it.
 
 | Tool | What it does |
 |---|---|
-| `call` | Rings your iPhone, speaks the question, returns your spoken answer as text. Holds ~30s, then hands the AI a `call_id` to poll |
+| `call` | Rings your iPhone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text. Holds ~30s, then hands the AI a `call_id` to poll |
 | `poll_result` | Finishes a call that was still ringing |
 | `text` | Push-notification message, no ring |
 | `wait_for_reply` | Delivers your replies and voicemails back to the AI |
@@ -166,7 +166,7 @@ for /call-me on that phone); the response spells that out in `notice`.
 | Field | |
 |---|---|
 | `to` | your 10-digit /call-me number. Required |
-| `text` / `body` | what to ask / send. 600 chars for a call, 2000 for a text |
+| `text` / `body` | what to say / send. Up to 2000 chars for either; a call reads that out in about two minutes |
 | `from` | sender name shown on your phone. Defaults to "Someone's AI" |
 | `timeout_s` | `/ring` only: seconds to wait, 30 to 300. Default 300 |
 
@@ -251,7 +251,7 @@ what the panel sends over the network are in that repository's README.
 ## How it works
 
 - `call` creates a VoIP call (LiveKit WebRTC — no real telephony); your
-  iPhone rings through CallKit like a real call, TTS speaks the question,
+  iPhone rings through CallKit like a real call, TTS reads your text,
   your spoken reply is transcribed and returned to the agent.
 - Your number is a bearer capability: anyone who knows it can reach you,
   nobody who doesn't can. Rate limits and per-number caps apply server-side;

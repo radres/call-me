@@ -1,6 +1,6 @@
 ---
 name: call-me
-description: Call or text your human's actual iPhone and handle replies from the /call-me app. Use when the user says "call me", "ring me", "phone me if something comes up", "text my phone", asks the agent to stay reachable, or sends an inbound /call-me message or voicemail. The phone rings through CallKit, spoken answers return as transcripts, and channel-enabled hosts deliver later messages directly into the active agent session.
+description: Call or text your human's actual iPhone and handle replies from the /call-me app. Use when the user says "call me", "ring me", "phone me if something comes up", "text my phone", asks the agent to stay reachable, wants something read out loud (an update, a summary of the day ahead), or sends an inbound /call-me message or voicemail. The phone rings through CallKit, spoken answers return as transcripts, and channel-enabled hosts deliver later messages directly into the active agent session.
 ---
 
 # /call-me — call your human
@@ -221,14 +221,22 @@ no reply, or the answer is genuinely time-sensitive and blocking.
    callme call "I can fix the flaky test two ways: skip it or rewrite the fixture. Which do you want?"
    ```
    - Phone rings with the native call UI; your label is the caller name.
-   - The question is spoken aloud; the human answers by voice; you get
-     `ANSWER: <transcript>` on stdout. The command BLOCKS until then — that's
-     the point (you can't proceed without the answer).
+   - Your text is read aloud word for word; the human answers by voice; you
+     get `ANSWER: <transcript>` on stdout. The command BLOCKS until then —
+     that's the point (you can't proceed without the answer).
    - Exit 3 = missed/declined/timeout. Fall back to your best judgment and
      say so in a follow-up text.
-   - Keep questions short (≤600 chars), self-contained, answerable in one
-     sentence. Include the options in the question.
+   - Up to 2000 characters, about two minutes of speech. For a decision,
+     make it self-contained and include the options.
 5. If a call is declined, do NOT retry the call — send a text instead.
+
+## Read something out — not every call is a question
+
+`callme call` speaks whatever you pass it, so it also works for things the
+human would rather hear than read: a summary of the day ahead, an
+end-of-run report, a status update while they are driving. Same 2000-character
+limit. They can reply after it or just hang up; an empty `ANSWER:` means they
+only listened.
 
 ### If you text and keep working, park a check-back
 
@@ -298,15 +306,9 @@ callme title "flaky test fix"
 > guard is over-firing, not reacting to the wording. Don't burn turns retrying
 > variants — skip the title and place the call; `call` itself works fine.
 >
-> Also: `call`'s `question` is capped at **600 characters** of spoken text and
-> returns a hard 422 above it. Draft the question short rather than trimming
-> after a rejection. `timeout_seconds` is capped at **300** by the server even
-> though the MCP schema advertises 900 (verified 2026-09-19) — the same 422
-> reports both violations at once.
->
 > Never put digits the human must read back (IBAN, account number, one-time
-> code, long URL) in the spoken `question`. Send them with `text` first, then
-> call and point at the text; speech transcription mangles them.
+> code, long URL) in the spoken text. Send them with `text` first, then call
+> and point at the text; speech transcription mangles them.
 
 ## Manual listen fallback
 

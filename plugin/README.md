@@ -3,8 +3,8 @@
 A portable [Agent Plugins](https://agent-plugins.org) package for Call Me. It
 also carries a Cursor manifest, so it installs as a Cursor plugin.
 
-Call Me lets your agent ring your iPhone, ask its question out loud and get your
-spoken answer back as text, or just text you. It is not a voice assistant and
+Call Me lets your agent ring your iPhone, read you a question, an update or your
+day ahead, and get your spoken reply back as text, or just text you. It is not a voice assistant and
 has no model of its own: your agent does the thinking, Call Me only carries the
 question to your phone and the answer back. Use it to keep a long task moving
 while you drive, train or walk.
@@ -41,7 +41,7 @@ the iPhone app, with a free trial for eligible accounts.
 
 | Tool | What it does |
 |---|---|
-| `call` | Rings your iPhone, speaks the question, returns your spoken answer as text |
+| `call` | Rings your iPhone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text |
 | `poll_result` | Finishes a call that was still ringing |
 | `text` | Push-notification message, no ring |
 | `wait_for_reply` | Delivers your replies and voicemails back to the agent |

@@ -7,8 +7,9 @@ license: MIT
 # Call Me
 
 Call Me is a voice relay, not a voice assistant. You do all the thinking. Call
-Me rings the user's iPhone, reads your question aloud, and hands their spoken
-answer back to you as text. Use it to keep a task moving while the user is
+Me rings the user's iPhone, reads your text aloud word for word, and hands
+their spoken reply back to you as text. The text can be a question, a status
+update or a summary of the day ahead. Use it to keep a task moving while the user is
 driving, at the gym or away from the desk.
 
 The tools come from the `call-me` MCP server in this plugin: `call`,
@@ -44,9 +45,10 @@ answers by itself and says so.
 4. `missed` or `declined`: do not call again. Send one `text` with the same
    question, then `wait_for_reply` with the `session_token`.
 
-Speak English: the phone reads the question with English text-to-speech. Keep
-it under 600 characters and answerable in one sentence. Never put digits the
-user must read back (codes, account numbers, long URLs) in a spoken question;
+Speak English: the phone reads the text with English text-to-speech. Up to
+2000 characters, about two minutes of speech; for a decision, keep it
+answerable in one sentence. Never put digits the user must read back (codes,
+account numbers, long URLs) in spoken text;
 send them with `text` first and refer to it in the call.
 
 ## Texting
