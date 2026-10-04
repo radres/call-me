@@ -15,7 +15,7 @@ import { isFromPairedUser, notificationText } from "../lib/inbound-events.mjs";
 
 const api = (
   process.env.AIPHONE_API ||
-  "https://serdaroztetik.com/aiphone"
+  "https://callmemcp.com/aiphone"
 ).replace(/\/$/, "");
 const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const projectName = projectDir.split("/").filter(Boolean).at(-1) || "project";

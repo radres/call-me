@@ -24,7 +24,7 @@ servers already there:
   "mcpServers": {
     "call-me": {
       "type": "streamableHttp",
-      "url": "https://serdaroztetik.com/aiphone/mcp",
+      "url": "https://callmemcp.com/mcp",
       "timeout": 120,
       "disabled": false,
       "autoApprove": []

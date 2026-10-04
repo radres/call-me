@@ -151,7 +151,7 @@
     },
     {
       "parameters": {
-        "endpointUrl": "https://serdaroztetik.com/aiphone/mcp",
+        "endpointUrl": "https://callmemcp.com/mcp",
         "serverTransport": "httpStreamable",
         "include": "selected",
         "includeTools": [
@@ -296,7 +296,7 @@
     },
     {
       "parameters": {
-        "endpointUrl": "https://serdaroztetik.com/aiphone/mcp",
+        "endpointUrl": "https://callmemcp.com/mcp",
         "serverTransport": "httpStreamable",
         "tool": {
           "__rl": true,

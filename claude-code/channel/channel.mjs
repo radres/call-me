@@ -36,7 +36,7 @@ import { APP_STORE_URL } from "../lib/appstore-qr.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const api = (process.env.AIPHONE_API || "https://serdaroztetik.com/aiphone").replace(/\/$/, "");
+const api = (process.env.AIPHONE_API || "https://callmemcp.com/aiphone").replace(/\/$/, "");
 const projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
 
 // Bump whenever the onboarding copy below changes. dist/channel.mjs is an esbuild

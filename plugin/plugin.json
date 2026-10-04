@@ -5,7 +5,7 @@
   "description": "Let your agent ring your iPhone, read you a question, an update or your day ahead, and get your spoken reply back as text, or just text you. A voice relay for when you are away from the keyboard, not a voice assistant: your agent does the thinking.",
   "author": {
     "name": "Serdar Oztetik",
-    "url": "https://serdaroztetik.com"
+    "url": "https://callmemcp.com"
   },
   "homepage": "https://github.com/radres/call-me/tree/main/plugin",
   "repository": "https://github.com/radres/call-me",

@@ -7,7 +7,7 @@
   "authorUrl": "https://github.com/radres",
   "homepage": "https://github.com/radres/call-me",
   "icon": "https://raw.githubusercontent.com/radres/call-me/main/assets/logo-400.png",
-  "cloudEndpoint": "https://serdaroztetik.com/aiphone/mcp",
+  "cloudEndpoint": "https://callmemcp.com/mcp",
   "tags": [
     "phone",
     "iphone",

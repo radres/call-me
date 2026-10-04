@@ -23,7 +23,7 @@ or API key.
 
 1. If `~/.aiphone/config.json` exists, use its `user_number`.
 2. Otherwise ask the user for the number. If they do not have the app yet, call
-   `setup` and show this link: [Download Call Me from the App Store](https://serdaroztetik.com/aiphone/go/agent-plugin).
+   `setup` and show this link: [Download Call Me from the App Store](https://callmemcp.com/go/agent-plugin).
 3. With the user's permission, save it to `~/.aiphone/config.json` as
    `{"user_number": "<10 digits>"}` (directory mode 700, file mode 600) so the
    next session does not ask again.

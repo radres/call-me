@@ -6,7 +6,7 @@ speaks MCP; nothing to install.
 
 ## 1. Get the app
 
-**[callme on the App Store](https://serdaroztetik.com/aiphone/go/readme)**.
+**[callme on the App Store](https://callmemcp.com/go/readme)**.
 No registration, no email. Open it, tap *Agree & Continue*, and it shows your
 personal **callme number**: 10 digits, and all an agent needs to reach you.
 
@@ -19,13 +19,13 @@ read files on your computer and therefore needs the number supplied separately.
 One server, every MCP client — no API key, no OAuth:
 
 ```
-https://serdaroztetik.com/aiphone/mcp
+https://callmemcp.com/mcp
 ```
 
 **Claude Code**
 
 ```bash
-claude mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
+claude mcp add --transport http call-me https://callmemcp.com/mcp
 ```
 
 **opencode** — add to `opencode.json` (or `~/.config/opencode/opencode.json`):
@@ -35,7 +35,7 @@ claude mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
   "mcp": {
     "call-me": {
       "type": "remote",
-      "url": "https://serdaroztetik.com/aiphone/mcp",
+      "url": "https://callmemcp.com/mcp",
       "enabled": true
     }
   }
@@ -58,7 +58,7 @@ text, so no number needs to be typed into the Codex conversation. Use its
 **Gemini CLI**
 
 ```bash
-gemini mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
+gemini mcp add --transport http call-me https://callmemcp.com/mcp
 ```
 
 **Cursor** — add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
@@ -66,7 +66,7 @@ gemini mcp add --transport http call-me https://serdaroztetik.com/aiphone/mcp
 ```json
 {
   "mcpServers": {
-    "call-me": { "url": "https://serdaroztetik.com/aiphone/mcp" }
+    "call-me": { "url": "https://callmemcp.com/mcp" }
   }
 }
 ```
@@ -105,7 +105,7 @@ phone, and these two endpoints are the whole product.
 **Ring and wait for the spoken answer** (blocks until you answer or it gives up):
 
 ```bash
-curl -sS https://serdaroztetik.com/aiphone/ring \
+curl -sS https://callmemcp.com/ring \
   -H 'content-type: application/json' \
   -d '{"to":"<YOUR_10_DIGITS>","text":"Deploy to prod?","from":"Claude on my laptop"}'
 ```
@@ -121,7 +121,7 @@ curl -sS https://serdaroztetik.com/aiphone/ring \
 **Text only**, no ring:
 
 ```bash
-curl -sS https://serdaroztetik.com/aiphone/text \
+curl -sS https://callmemcp.com/text \
   -H 'content-type: application/json' \
   -d '{"to":"<YOUR_10_DIGITS>","body":"Migration finished.","from":"Claude on my laptop"}'
 ```
@@ -145,12 +145,12 @@ phone.
 
 ```bash
 # name the thread
-curl -sS https://serdaroztetik.com/aiphone/sessions/label \
+curl -sS https://callmemcp.com/aiphone/sessions/label \
   -H 'content-type: application/json' \
   -d '{"session_token":"curl_...","label":"nightly deploy"}'
 
 # long-poll for replies, voicemails and missed calls
-curl -sS "https://serdaroztetik.com/aiphone/sessions/events?session_token=curl_...&cursor=0&wait=25"
+curl -sS "https://callmemcp.com/aiphone/sessions/events?session_token=curl_...&cursor=0&wait=25"
 ```
 
 The token is derived from `to` + `from` + your IP, so repeat curls from the same

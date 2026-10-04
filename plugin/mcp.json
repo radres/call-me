@@ -3,7 +3,7 @@
   "mcpServers": {
     "call-me": {
       "type": "streamable-http",
-      "url": "https://serdaroztetik.com/aiphone/mcp"
+      "url": "https://callmemcp.com/mcp"
     }
   }
 }

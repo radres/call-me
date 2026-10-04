@@ -40,7 +40,7 @@ directly:
 
 ```sh
 CALLME_TO=$(jq -r .user_number ~/.aiphone/config.json)
-curl -sS https://serdaroztetik.com/aiphone/ring \
+curl -sS https://callmemcp.com/ring \
   -H 'content-type: application/json' \
   -d "$(jq -nc --arg to "$CALLME_TO" --arg text "Should I deploy to prod?" \
     --arg from "Codex" '{to:$to,text:$text,from:$from}')"

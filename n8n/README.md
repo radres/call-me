@@ -17,7 +17,7 @@ It needs n8n 2.x, where the MCP Client and MCP Client Tool nodes are built in.
 1. Add an OpenAI credential to **OpenAI Chat Model**.
 2. Run it. The number is the Call Me demo line, `5550001234`, which answers
    "yes" by itself, so no phone rings.
-3. Install [Call Me](https://serdaroztetik.com/aiphone/go/n8n) on your iPhone
+3. Install [Call Me](https://callmemcp.com/go/n8n) on your iPhone
    and put the 10-digit number from **My Number** into **Configure me**.
    Reaching a real phone needs an active Call Me subscription.
 4. Replace **Do the approved action** with your real step.
@@ -28,7 +28,7 @@ It needs n8n 2.x, where the MCP Client and MCP Client Tool nodes are built in.
 |---|---|
 | Configure me | Call Me number, sender name, request to approve |
 | Ask by phone | AI Agent. Calls once with `call`, polls with `poll_result` while it rings, returns `approved`, `rejected` or `no_answer` and the transcript |
-| Call Me MCP | MCP Client Tool on `https://serdaroztetik.com/aiphone/mcp`, limited to `call` and `poll_result` |
+| Call Me MCP | MCP Client Tool on `https://callmemcp.com/mcp`, limited to `call` and `poll_result` |
 | Route by answer | One branch per decision |
 | Text the question instead | Standalone MCP Client calling `text` when nobody answers, in the same thread on the phone |
 

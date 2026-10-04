@@ -14,7 +14,7 @@ while you drive, train or walk.
 | File | For |
 |---|---|
 | `plugin.json` | Agent Plugins 1.0.0 manifest |
-| `mcp.json` | The hosted MCP server, `https://serdaroztetik.com/aiphone/mcp` (Streamable HTTP, no auth) |
+| `mcp.json` | The hosted MCP server, `https://callmemcp.com/mcp` (Streamable HTTP, no auth) |
 | `skills/call-me/SKILL.md` | When and how the agent should call or text you |
 | `.mcp.json` | The same server in Cursor's own format, which has no `type` field |
 | `.cursor-plugin/plugin.json` | Cursor manifest and logo |
@@ -24,7 +24,7 @@ server and teaches the agent to use it.
 
 ## Setup
 
-1. Install [Call Me](https://serdaroztetik.com/aiphone/go/agent-plugin) on your
+1. Install [Call Me](https://callmemcp.com/go/agent-plugin) on your
    iPhone and open **My Number**. Those 10 digits are all an agent needs.
 2. Install this plugin in your client. In Cursor: add it from
    [cursor.directory](https://cursor.directory), or copy this folder to

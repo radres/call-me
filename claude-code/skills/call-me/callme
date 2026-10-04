@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077   # session tokens and the paired number are credentials
 
-API="${AIPHONE_API:-https://serdaroztetik.com/aiphone}"
+API="${AIPHONE_API:-https://callmemcp.com/aiphone}"
 CONF_DIR="${AIPHONE_HOME:-${AIPHONE_STATE_DIR:-$HOME/.aiphone}}"
 CONF="$CONF_DIR/session.json"
 USER_CONF="$CONF_DIR/config.json"
