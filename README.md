@@ -70,6 +70,12 @@ text, so no number needs to be typed into the Codex conversation. Use its
 **Gemini CLI**
 
 ```bash
+gemini extensions install https://github.com/radres/call-me
+```
+
+or, for the MCP server alone:
+
+```bash
 gemini mcp add --transport http call-me https://callmemcp.com/mcp
 ```
 

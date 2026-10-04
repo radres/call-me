@@ -1,0 +1,11 @@
+{
+  "name": "call-me",
+  "version": "1.0.0",
+  "description": "Your AI rings your iPhone, speaks its text, and gets your spoken answer back as text. Hosted MCP server, no API key.",
+  "mcpServers": {
+    "call-me": {
+      "httpUrl": "https://callmemcp.com/mcp"
+    }
+  },
+  "contextFileName": "GEMINI.md"
+}
