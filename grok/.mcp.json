@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "callmemcp": {
+      "type": "http",
+      "url": "https://callmemcp.com/mcp",
+      "note": "Hosted /call-me MCP server. No OAuth and no API key: every call or text carries the user's 10-digit Call Me number, shown under My Number in the Call Me iPhone app. Tools: setup, call, poll_result, text, wait_for_reply, set_thread_title."
+    }
+  }
+}

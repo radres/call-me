@@ -79,6 +79,15 @@ or, for the MCP server alone:
 gemini mcp add --transport http call-me https://callmemcp.com/mcp
 ```
 
+**Grok**
+
+In the Grok app: [grok.com/connectors](https://grok.com/connectors) → New
+Connector → Custom → `https://callmemcp.com/mcp`. In Grok Build:
+
+```bash
+grok plugin install radres/call-me#grok
+```
+
 **Cline** — add to Cline's MCP settings (MCP Servers → Configure; CLI:
 `~/.cline/data/settings/cline_mcp_settings.json`). Full agent-readable steps are
 in [llms-install.md](llms-install.md).
