@@ -5,8 +5,12 @@
   "version": "0.8.1",
   "description": "Call, text, and receive replies from the /call-me iOS app. Pair once (any session) and every Claude on this machine reaches the same phone.",
   "author": {
-    "name": "Serdar Oztetik"
+    "name": "Serdar Oztetik",
+    "email": "serdaroztetik@gmail.com"
   },
+  "homepage": "https://callmemcp.com/",
+  "repository": "https://github.com/radres/call-me",
+  "license": "MIT",
   "defaultEnabled": false,
   "mcpServers": "./.mcp.json",
   "channels": [
@@ -22,7 +26,7 @@
     "user_number": {
       "type": "string",
       "title": "Your /call-me number (optional)",
-      "description": "The 10-digit number shown in the iPhone app. Leave blank and ask Claude to set up /call-me \u2014 it will walk you through it and remember the number in ~/.aiphone/config.json.",
+      "description": "The 10-digit number shown in the iPhone app. Leave blank and ask Claude to set up /call-me — it will walk you through it and remember the number in ~/.aiphone/config.json.",
       "required": false
     }
   }
