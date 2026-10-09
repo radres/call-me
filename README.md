@@ -2,7 +2,11 @@
   <a href="https://callmemcp.com/go/readme"><img src="assets/logo-rounded.png" width="180" alt="/call-me app icon"></a>
 </p>
 
-<h1 align="center">callme — your AI can call you</h1>
+<div align="center">
+
+# callme — your AI can call you
+
+</div>
 
 <p align="center">
   <a href="https://callmemcp.com/go/readme"><img src="assets/app-store-badge.svg" height="60" alt="Download on the App Store"></a>
