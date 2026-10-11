@@ -10,6 +10,8 @@
 
 <p align="center">
   <a href="https://callmemcp.com/go/readme"><img src="assets/app-store-badge.svg" height="60" alt="Download on the App Store"></a>
+  <br>
+  <a href="https://mcpservers.org/servers/radres/call-me"><img src="https://mcpservers.org/badge.svg" alt="Listed on mcpservers.org"></a>
 </p>
 
 Your AI agents ring your actual iPhone, read you a question, an update or
