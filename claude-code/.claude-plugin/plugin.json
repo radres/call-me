@@ -10,7 +10,7 @@
   },
   "homepage": "https://callmemcp.com/",
   "repository": "https://github.com/radres/call-me",
-  "icon": "./icon.png",
+  "icon": "./.claude-plugin/icon.png",
   "documentationUrl": "https://github.com/radres/call-me#readme",
   "supportUrl": "https://github.com/radres/call-me/issues",
   "privacyPolicyUrl": "https://callmemcp.com/privacy",
