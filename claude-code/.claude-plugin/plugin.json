@@ -16,6 +16,17 @@
   "privacyPolicyUrl": "https://callmemcp.com/privacy",
   "termsOfServiceUrl": "https://callmemcp.com/terms",
   "license": "MIT",
+  "keywords": [
+    "phone",
+    "call",
+    "text",
+    "sms",
+    "iphone",
+    "voice",
+    "notifications",
+    "human-in-the-loop",
+    "approval"
+  ],
   "defaultEnabled": false,
   "mcpServers": "./.mcp.json",
   "channels": [
