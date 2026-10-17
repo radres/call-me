@@ -18,9 +18,10 @@ Your AI agents ring your actual iPhone, read you a question, an update or
 your day ahead, and get your spoken reply back as text — or just text you. Works from any AI that
 speaks MCP; nothing to install.
 
-Call Me is not a voice assistant and holds no conversation of its own. Your
-agent does the thinking; Call Me only carries its question to your phone and
-your answer back, so you can keep it working while you drive, train or walk.
+Call Me is not a voice assistant: your agent does all the thinking. Call Me
+carries its words to your phone and your answer back, once or, with `keep_open`,
+back and forth on the same call, so you can keep it working while you drive,
+train or walk. Calls speak and understand 90+ languages.
 
 ## 1. Get the app
 
@@ -141,7 +142,9 @@ the number or use that client's explicit pairing flow; never guess it.
 
 | Tool | What it does |
 |---|---|
-| `call` | Rings your iPhone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text. Holds ~30s, then hands the AI a `call_id` to poll |
+| `call` | Rings your iPhone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text. Holds ~30s, then hands the AI a `call_id` to poll. `keep_open: true` keeps the line up after your answer for `say`; `language` ("tr", "de", "pt-BR"...) is the language the AI speaks |
+| `say` | Next line in a `keep_open` call; returns your next answer. While the AI thinks you hear a soft keyboard sound, and anything you say meanwhile comes back as `said_while_waiting` |
+| `hang_up` | Ends a `keep_open` call, with an optional goodbye |
 | `poll_result` | Finishes a call that was still ringing |
 | `text` | Push-notification message, no ring |
 | `wait_for_reply` | Delivers your replies and voicemails back to the AI |
@@ -172,6 +175,22 @@ curl -sS https://callmemcp.com/ring \
 `status` is one of `completed`, `missed`, `declined`, `timeout`, `failed`.
 `transcript` is what you said, already turned into text.
 
+**Keep the line open** for a back-and-forth: add `"keep_open":true` to `/ring`.
+The answer comes back with `"open":true` and a `call_id`. Speak again on the same
+call and wait for the next answer, until you hang up (or the phone does):
+
+```bash
+curl -sS https://callmemcp.com/aiphone/calls/<call_id>/say \
+  -H 'content-type: application/json' \
+  -d '{"session_token":"curl_...","text":"Reverted it. Anything else?"}'
+
+curl -sS https://callmemcp.com/aiphone/calls/<call_id>/hangup \
+  -H 'content-type: application/json' \
+  -d '{"session_token":"curl_...","text":"Thanks, talk later."}'
+```
+
+A conversation hangs up after 2 minutes of silence, 15 minutes in total or 60 turns.
+
 **Text only**, no ring:
 
 ```bash
@@ -190,6 +209,8 @@ for /call-me on that phone); the response spells that out in `notice`.
 | `text` / `body` | what to say / send. Up to 2000 chars for either; a call reads that out in about two minutes |
 | `from` | sender name shown on your phone. Defaults to "Someone's AI" |
 | `timeout_s` | `/ring` only: seconds to wait, 30 to 300. Default 300 |
+| `keep_open` | `/ring` only: keep the line up after the answer for `say`. Default false |
+| `language` | `/ring` and `say`: the language you write `text` in, e.g. `"tr"`. Default English |
 
 ### Anything else
 
