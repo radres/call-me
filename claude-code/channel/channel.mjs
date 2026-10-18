@@ -26,6 +26,7 @@ import {
   pruneStaleState,
   readJson,
   releaseChannel,
+  stateDir,
   stateFileFor,
   waiterAlive,
   writeConfig,
@@ -35,8 +36,13 @@ import { eventMeta, isFromPairedUser, notificationText } from "../lib/inbound-ev
 import { APP_STORE_URL } from "../lib/appstore-qr.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const api = (process.env.AIPHONE_API || "https://callmemcp.com/aiphone").replace(/\/$/, "");
+const PLUGIN_VERSION = "0.10.0";
+const toolsCacheFile = join(stateDir(), "tools-claude-code.json");
+const TOOLS_REFRESH_MS = 10 * 60_000;
+const LOCAL_ONLY_TOOLS = new Set(["wait_for_answer", "setup", "pair", "identity"]);
 const projectName = process.cwd().split("/").filter(Boolean).at(-1) || "project";
 
 // Bump whenever the onboarding copy below changes. dist/channel.mjs is an esbuild
@@ -93,10 +99,10 @@ const CHANNELS_ENTRY = `server:${MCP_SERVER_NAME}`;
 const CHANNEL_ONLY = process.env.CALLME_CHANNEL_ONLY === "1";
 
 const mcp = new Server(
-  { name: "callme", version: "0.9.0" },
+  { name: "callme", version: PLUGIN_VERSION },
   {
     capabilities: {
-      tools: {},
+      tools: { listChanged: true },
       // Unlocks `notifications/claude/channel`: this server may push inbound
       // messages into the live session instead of being polled. Declaring it is
       // necessary but not sufficient — see channelActive() for the rest of the
@@ -127,8 +133,7 @@ const mcp = new Server(
   },
 );
 
-mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: CHANNEL_ONLY ? [] : [
+const BUILTIN_TOOLS = CHANNEL_ONLY ? [] : [
     {
       name: "reply",
       description: "Reply by text to the paired human in the /call-me conversation",
@@ -169,37 +174,6 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
         },
         required: ["question"],
-        additionalProperties: false,
-      },
-    },
-    {
-      name: "say",
-      description:
-        "In a call placed with keep_open, speak the next line and wait for their answer. Same result " +
-        "shape as call; open:false means the call has ended. Anything they said while you were " +
-        "thinking comes back as said_while_waiting.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          call_id: { type: "integer", description: "call_id from the call result" },
-          text: { type: "string", minLength: 1, maxLength: 2000, description: "What to say next" },
-          timeout_seconds: { type: "integer", minimum: 30, maximum: 300, default: 300 },
-          language: { type: "string", maxLength: 32, description: "Switch the call's language; empty keeps it" },
-        },
-        required: ["call_id", "text"],
-        additionalProperties: false,
-      },
-    },
-    {
-      name: "hang_up",
-      description: "End a call you placed, optionally with a last spoken line (\"Thanks, talk later.\").",
-      inputSchema: {
-        type: "object",
-        properties: {
-          call_id: { type: "integer" },
-          text: { type: "string", maxLength: 2000, description: "Goodbye line; empty just hangs up" },
-        },
-        required: ["call_id"],
         additionalProperties: false,
       },
     },
@@ -258,22 +232,30 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Show this Claude session's /call-me routing number and the paired phone",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
-    {
-      name: "set_title",
-      description:
-        "Set this session's thread title on the human's phone (3-5 words describing the conversation)",
-      inputSchema: {
-        type: "object",
-        properties: { title: { type: "string", minLength: 1, maxLength: 80 } },
-        required: ["title"],
-        additionalProperties: false,
-      },
-    },
-  ],
-}));
+];
+
+let remoteTools = loadCachedTools();
+let toolsListed = false;
+let refreshing = null;
+let lastRefreshAt = 0;
+
+mcp.setRequestHandler(ListToolsRequestSchema, async () => {
+  if (!remoteTools && refreshing) await Promise.race([refreshing, sleep(3_000)]);
+  toolsListed = true;
+  const remote = servedTools();
+  const remoteNames = new Set(remote.map((tool) => tool.name));
+  return {
+    tools: [
+      ...BUILTIN_TOOLS.filter((tool) => !remoteNames.has(tool.name)),
+      ...remote.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
+    ],
+  };
+});
 
 mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params.arguments || {};
+  const remote = servedTools().find((tool) => tool.name === request.params.name);
+  if (remote) return callRemoteTool(remote, args);
   switch (request.params.name) {
     case "reply":
     case "text": {
@@ -292,29 +274,6 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await placeCall(to, String(args.question || ""), Number(args.timeout_seconds || 300), {
         keepOpen: args.keep_open === true,
         language: String(args.language || ""),
-      });
-      return toolResult(JSON.stringify(result));
-    }
-    case "say": {
-      const session = await ensureSession();
-      const timeoutS = Number(args.timeout_seconds || 300);
-      const result = await requestJson(`/calls/${Number(args.call_id)}/say`, {
-        method: "POST",
-        body: {
-          session_token: session.session_token,
-          text: String(args.text || ""),
-          timeout_s: timeoutS,
-          language: String(args.language || ""),
-        },
-        timeoutMs: (timeoutS + 30) * 1000,
-      });
-      return toolResult(JSON.stringify(result));
-    }
-    case "hang_up": {
-      const session = await ensureSession();
-      const result = await requestJson(`/calls/${Number(args.call_id)}/hangup`, {
-        method: "POST",
-        body: { session_token: session.session_token, text: String(args.text || "") },
       });
       return toolResult(JSON.stringify(result));
     }
@@ -425,20 +384,15 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         setup_copy_rev: SETUP_COPY_REV,
       }));
     }
-    case "set_title": {
-      const label = String(args.title || "").trim();
-      const session = await ensureSession();
-      await requestJson("/sessions/label", {
-        method: "POST",
-        body: { session_token: session.session_token, label },
-      });
-      return toolResult(`titled: ${label}`);
-    }
     default:
       throw new Error(`Unknown tool: ${request.params.name}`);
   }
 });
 
+if (!CHANNEL_ONLY) {
+  refreshTools();
+  setInterval(refreshTools, TOOLS_REFRESH_MS).unref?.();
+}
 await mcp.connect(new StdioServerTransport());
 
 // Inbound events reach the model one of two ways. This server pushes them over
@@ -728,13 +682,95 @@ async function sendText(to, text) {
 async function requestJson(path, { method = "GET", body, timeoutMs = 30_000 } = {}) {
   const response = await fetch(`${api}${path}`, {
     method,
-    headers: body ? { "content-type": "application/json" } : undefined,
+    headers: {
+      "x-callme-client": `claude-code/${PLUGIN_VERSION}`,
+      ...(body ? { "content-type": "application/json" } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(timeoutMs),
   });
+  const rev = response.headers.get("x-callme-tools-rev");
+  if (rev && !CHANNEL_ONLY && rev !== remoteTools?.rev) refreshTools();
   const text = await response.text();
   if (!response.ok) throw new Error(`${method} ${path} returned ${response.status}: ${text}`);
   return text ? JSON.parse(text) : {};
+}
+
+function servedTools() {
+  return (remoteTools?.tools || []).filter((tool) => !LOCAL_ONLY_TOOLS.has(tool.name));
+}
+
+function validRemoteTool(tool) {
+  const req = tool?.request;
+  return (
+    typeof tool?.name === "string" &&
+    /^[a-z_]{1,40}$/.test(tool.name) &&
+    tool.inputSchema?.type === "object" &&
+    req?.method === "POST" &&
+    /^\/[A-Za-z0-9_/{}-]*$/.test(req.path || "") &&
+    !req.path.includes("//") &&
+    Object.values(req.inject || {}).every((source) => source === "session_token" || source === "paired_number")
+  );
+}
+
+function validManifest(manifest) {
+  return typeof manifest?.rev === "string" && Array.isArray(manifest.tools) && manifest.tools.every(validRemoteTool);
+}
+
+function loadCachedTools() {
+  const cached = readJson(toolsCacheFile);
+  return validManifest(cached) ? cached : null;
+}
+
+function refreshTools() {
+  if (refreshing || Date.now() - lastRefreshAt < 60_000) return refreshing;
+  lastRefreshAt = Date.now();
+  refreshing = (async () => {
+    try {
+      const next = await requestJson("/plugin/tools", { timeoutMs: 10_000 });
+      if (!validManifest(next) || next.rev === remoteTools?.rev) return;
+      remoteTools = next;
+      writeJsonPrivate(toolsCacheFile, next);
+      if (toolsListed) await mcp.sendToolListChanged();
+    } catch (error) {
+      console.error(`/call-me tool list refresh failed: ${error.message}`);
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
+async function callRemoteTool(tool, args) {
+  const { path, rename = {}, inject = {}, timeout_field: timeoutField } = tool.request;
+  let url = path;
+  const body = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (url.includes(`{${key}}`)) url = url.replaceAll(`{${key}}`, encodeURIComponent(String(value)));
+    else body[rename[key] || key] = value;
+  }
+  if (/[{}]/.test(url)) return toolResult(`Missing an argument for ${tool.name}.`, true);
+  for (const [field, source] of Object.entries(inject)) {
+    if (source === "paired_number") {
+      const to = pairedNumber();
+      if (!to) return notPaired();
+      body[field] = to;
+    } else {
+      body[field] = (await ensureSession()).session_token;
+    }
+  }
+  const timeoutS = timeoutField ? Number(body[timeoutField]) || 300 : 0;
+  const result = await requestJson(url, {
+    method: "POST",
+    body,
+    timeoutMs: timeoutS ? (timeoutS + 30) * 1000 : 30_000,
+  });
+  if (tool.reached_out) markReachedOut(stateKey, tool.reached_out);
+  return toolResult(JSON.stringify(result));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function textSchema(description) {
