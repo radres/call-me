@@ -93,7 +93,7 @@ const CHANNELS_ENTRY = `server:${MCP_SERVER_NAME}`;
 const CHANNEL_ONLY = process.env.CALLME_CHANNEL_ONLY === "1";
 
 const mcp = new Server(
-  { name: "callme", version: "0.7.0" },
+  { name: "callme", version: "0.9.0" },
   {
     capabilities: {
       tools: {},
@@ -144,7 +144,9 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       description:
         "Call the paired human, read your text aloud word for word, and wait for what they say back " +
         "(transcribed). The text can be a question, a status update or a summary of the day ahead; " +
-        "up to 2000 characters, about two minutes of speech.",
+        "up to 2000 characters, about two minutes of speech. With keep_open the line stays up after " +
+        "their answer (they hear a hold sound while you think): continue with say, end with hang_up. " +
+        "Use keep_open whenever a back-and-forth is likely; without it the call hangs up after one answer.",
       inputSchema: {
         type: "object",
         properties: {
@@ -155,8 +157,49 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
             description: "What to say, spoken exactly as written. A question, an update or a briefing.",
           },
           timeout_seconds: { type: "integer", minimum: 30, maximum: 300, default: 300 },
+          keep_open: {
+            type: "boolean",
+            default: false,
+            description: "Keep the line open after the first answer; the result carries call_id and open:true.",
+          },
+          language: {
+            type: "string",
+            maxLength: 32,
+            description: "Language you are speaking (\"tr\", \"pt-BR\"), so the call's own short lines match it.",
+          },
         },
         required: ["question"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "say",
+      description:
+        "In a call placed with keep_open, speak the next line and wait for their answer. Same result " +
+        "shape as call; open:false means the call has ended. Anything they said while you were " +
+        "thinking comes back as said_while_waiting.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          call_id: { type: "integer", description: "call_id from the call result" },
+          text: { type: "string", minLength: 1, maxLength: 2000, description: "What to say next" },
+          timeout_seconds: { type: "integer", minimum: 30, maximum: 300, default: 300 },
+          language: { type: "string", maxLength: 32, description: "Switch the call's language; empty keeps it" },
+        },
+        required: ["call_id", "text"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "hang_up",
+      description: "End a call you placed, optionally with a last spoken line (\"Thanks, talk later.\").",
+      inputSchema: {
+        type: "object",
+        properties: {
+          call_id: { type: "integer" },
+          text: { type: "string", maxLength: 2000, description: "Goodbye line; empty just hangs up" },
+        },
+        required: ["call_id"],
         additionalProperties: false,
       },
     },
@@ -246,7 +289,33 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "call": {
       const to = pairedNumber();
       if (!to) return notPaired();
-      const result = await placeCall(to, String(args.question || ""), Number(args.timeout_seconds || 300));
+      const result = await placeCall(to, String(args.question || ""), Number(args.timeout_seconds || 300), {
+        keepOpen: args.keep_open === true,
+        language: String(args.language || ""),
+      });
+      return toolResult(JSON.stringify(result));
+    }
+    case "say": {
+      const session = await ensureSession();
+      const timeoutS = Number(args.timeout_seconds || 300);
+      const result = await requestJson(`/calls/${Number(args.call_id)}/say`, {
+        method: "POST",
+        body: {
+          session_token: session.session_token,
+          text: String(args.text || ""),
+          timeout_s: timeoutS,
+          language: String(args.language || ""),
+        },
+        timeoutMs: (timeoutS + 30) * 1000,
+      });
+      return toolResult(JSON.stringify(result));
+    }
+    case "hang_up": {
+      const session = await ensureSession();
+      const result = await requestJson(`/calls/${Number(args.call_id)}/hangup`, {
+        method: "POST",
+        body: { session_token: session.session_token, text: String(args.text || "") },
+      });
       return toolResult(JSON.stringify(result));
     }
     case "wait_for_answer": {
@@ -622,11 +691,18 @@ function notPaired() {
 
 // Both the `call` tool and the pairing confirmation ring the phone the same way,
 // so the request lives here once — two copies would drift.
-async function placeCall(to, question, timeoutS) {
+async function placeCall(to, question, timeoutS, { keepOpen = false, language = "" } = {}) {
   const session = await ensureSession();
   const result = await requestJson("/calls", {
     method: "POST",
-    body: { session_token: session.session_token, to, text: question, timeout_s: timeoutS },
+    body: {
+      session_token: session.session_token,
+      to,
+      text: question,
+      timeout_s: timeoutS,
+      keep_open: keepOpen,
+      language,
+    },
     timeoutMs: (timeoutS + 30) * 1000,
   });
   markReachedOut(stateKey, "call");

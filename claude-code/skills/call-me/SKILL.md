@@ -238,6 +238,26 @@ end-of-run report, a status update while they are driving. Same 2000-character
 limit. They can reply after it or just hang up; an empty `ANSWER:` means they
 only listened.
 
+## Conversations — keep the line open
+
+A plain call hangs up after the first answer. When a back-and-forth is likely
+(two questions, a follow-up, a decision with details), keep the line open:
+
+- Claude Code plugin: `call` with `keep_open: true`. The result carries
+  `call_id` and `open: true`. Speak the next line with `say` (`call_id`,
+  `text`), which returns their next answer. End with `hang_up` (`call_id`,
+  optional goodbye `text`).
+- REST: `POST /calls` with `"keep_open": true`, then
+  `POST /calls/{id}/say {session_token, text}` and
+  `POST /calls/{id}/hangup {session_token, text}`.
+
+While you think, the human hears a hold sound, and if they talk meanwhile a
+short holding reply covers the gap; what they said comes back with the next
+answer as `said_while_waiting`. `open: false` means the call ended (they hung
+up, 120 s without a line from you, or the 15-minute cap). Pass `language`
+("tr") on `call` or `say` when you switch languages. Always `hang_up` when you
+are done, or the line idles until the timer drops it.
+
 ### If you text and keep working, park a check-back
 
 The failure mode here is silent: you text a question, work on something else,
