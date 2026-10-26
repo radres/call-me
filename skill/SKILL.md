@@ -240,13 +240,14 @@ only listened.
 
 ## Conversations — keep the line open
 
-A plain call hangs up after the first answer. When a back-and-forth is likely
-(two questions, a follow-up, a decision with details), keep the line open:
+In the Claude Code plugin and over MCP the line stays open after the first
+answer by default; pass `keep_open: false` for a one-shot call. Over REST and
+the `callme` CLI a call still hangs up after one answer unless you ask:
 
-- Claude Code plugin: `call` with `keep_open: true`. The result carries
-  `call_id` and `open: true`. Speak the next line with `say` (`call_id`,
-  `text`), which returns their next answer. End with `hang_up` (`call_id`,
-  optional goodbye `text`).
+- Claude Code plugin / MCP: `call`. The result carries `call_id` and
+  `open: true`. Speak the next line with `say` (`call_id`, `text`), which
+  returns their next answer. End with `hang_up` (`call_id`, optional goodbye
+  `text`).
 - REST: `POST /calls` with `"keep_open": true`, then
   `POST /calls/{id}/say {session_token, text}` and
   `POST /calls/{id}/hangup {session_token, text}`.
@@ -304,8 +305,10 @@ callme text "Build green, PR #142 merged. Nothing needed from you."
 
 Treat a non-2xx response as not delivered. If `callme text` returns HTTP 404,
 the saved sender session may be stale; the tokenless `POST /text` fallback is
-still allowed, but if it responds `unknown user number`, stop and report that
-the saved pairing is invalid. Never hardcode a number, substitute another local
+still allowed, but if it also answers 404 (the number is not a /call-me number),
+stop and report that the saved pairing is invalid. Never call or text a `from`
+number: it is an agent's identity, not a person, and five wrong numbers in an
+hour block the caller for an hour. Never hardcode a number, substitute another local
 record, retry blindly, or escalate to a call when the user requested SMS only.
 
 ## Title the thread
