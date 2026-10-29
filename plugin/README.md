@@ -3,7 +3,7 @@
 A portable [Agent Plugins](https://agent-plugins.org) package for Call Me. It
 also carries a Cursor manifest, so it installs as a Cursor plugin.
 
-Call Me lets your agent ring your iPhone, read you a question, an update or your
+Call Me lets your agent ring your phone, read you a question, an update or your
 day ahead, and get your spoken reply back as text, or just text you. It is not a voice assistant and
 has no model of its own: your agent does the thinking, Call Me only carries the
 question to your phone and the answer back. Use it to keep a long task moving
@@ -24,8 +24,8 @@ server and teaches the agent to use it.
 
 ## Setup
 
-1. Install [Call Me](https://callmemcp.com/go/agent-plugin) on your
-   iPhone and open **My Number**. Those 10 digits are all an agent needs.
+1. Install Call Me on your phone ([App Store](https://callmemcp.com/go/agent-plugin) or
+   [Google Play](https://callmemcp.com/go/play-agent-plugin)) and open **My Number**. Those 10 digits are all an agent needs.
 2. Install this plugin in your client. In Cursor: add it from
    [cursor.directory](https://cursor.directory), or copy this folder to
    `~/.cursor/plugins/local/call-me` and reload the window.
@@ -35,18 +35,18 @@ server and teaches the agent to use it.
    finishes"*.
 
 Connecting costs nothing. Reaching a real phone needs an active subscription in
-the iPhone app, with a free trial for eligible accounts.
+the Call Me app, with a free trial for eligible accounts.
 
 ## Tools
 
 | Tool | What it does |
 |---|---|
-| `call` | Rings your iPhone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text |
+| `call` | Rings your phone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text |
 | `poll_result` | Finishes a call that was still ringing |
 | `text` | Push-notification message, no ring |
 | `wait_for_reply` | Delivers your replies and voicemails back to the agent |
 | `set_thread_title` | Names the conversation thread on your phone |
-| `setup` | First-setup instructions and the App Store link |
+| `setup` | First-setup instructions and the App Store and Google Play links |
 
 Your number is a bearer capability: whoever has it can reach your phone, nobody
 else can. Calls and texts are rate limited, and blocking a thread in the app

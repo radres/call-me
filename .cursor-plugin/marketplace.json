@@ -4,13 +4,13 @@
     "name": "Serdar Oztetik"
   },
   "metadata": {
-    "description": "Call Me: let your agent call and text your actual iPhone."
+    "description": "Call Me: let your agent call and text your actual phone."
   },
   "plugins": [
     {
       "name": "call-me",
       "source": "plugin",
-      "description": "Ring your iPhone with the agent's question and get the spoken answer back as text."
+      "description": "Ring your phone with the agent's question and get the spoken answer back as text."
     }
   ]
 }

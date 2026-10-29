@@ -1,8 +1,8 @@
 {
   "identifier": "radres-call-me",
   "name": "Call Me",
-  "version": "1.0.0",
-  "description": "Your agent rings your iPhone, speaks its question and gets your spoken answer back as text, or sends you a push text. A voice relay, not a voice assistant: your agent does the thinking, Call Me only carries the question and the answer, so long tasks keep moving while you drive, train or step away.",
+  "version": "1.0.1",
+  "description": "Your agent rings your phone (iPhone or Android), speaks its question and gets your spoken answer back as text, or sends you a push text. A voice relay, not a voice assistant: your agent does the thinking, Call Me only carries the question and the answer, so long tasks keep moving while you drive, train or step away.",
   "author": "Serdar Oztetik",
   "authorUrl": "https://github.com/radres",
   "homepage": "https://github.com/radres/call-me",
@@ -11,6 +11,7 @@
   "tags": [
     "phone",
     "iphone",
+    "android",
     "voice",
     "notifications",
     "human-in-the-loop",
@@ -19,7 +20,7 @@
   "tools": [
     {
       "name": "setup",
-      "description": "Return first-setup instructions and a clickable App Store download link when no number is available.",
+      "description": "Return first-setup instructions and clickable App Store and Google Play download links when no number is available.",
       "inputSchema": {
         "type": "object",
         "properties": {},
@@ -33,7 +34,7 @@
     },
     {
       "name": "call",
-      "description": "Ring the human's iPhone, speak the question aloud, and return what they\n    say. Waits up to ~30s; if the result comes back status \"ringing\", follow up\n    with poll_result. On a local client, read `to` from\n    `~/.aiphone/config.json` → `user_number`; this hosted server cannot read\n    that file itself. It is a Call Me app number, not a regular phone number.\n    If missing, returns setup_required with the App Store link. Pass a previous\n    session_token to stay in the same thread on their phone.",
+      "description": "Ring the human's phone, speak the question aloud, and return what they\n    say. Waits up to ~30s; if the result comes back status \"ringing\", follow up\n    with poll_result. On a local client, read `to` from\n    `~/.aiphone/config.json` → `user_number`; this hosted server cannot read\n    that file itself. It is a Call Me app number, not a regular phone number.\n    If missing, returns setup_required with the App Store link. Pass a previous\n    session_token to stay in the same thread on their phone.",
       "inputSchema": {
         "type": "object",
         "properties": {

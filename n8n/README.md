@@ -1,7 +1,7 @@
 # n8n: approve an action by phone call
 
 [`approve-by-phone.json`](approve-by-phone.json) is an n8n workflow that rings a
-person's iPhone, asks for a yes or no out loud, and carries on from the answer.
+person's phone, asks for a yes or no out loud, and carries on from the answer.
 Use it in front of any step that should not run until someone says yes: a
 deploy, a refund, an email to a customer.
 
@@ -17,7 +17,8 @@ It needs n8n 2.x, where the MCP Client and MCP Client Tool nodes are built in.
 1. Add an OpenAI credential to **OpenAI Chat Model**.
 2. Run it. The number is the Call Me demo line, `5550001234`, which answers
    "yes" by itself, so no phone rings.
-3. Install [Call Me](https://callmemcp.com/go/n8n) on your iPhone
+3. Install Call Me on your phone ([App Store](https://callmemcp.com/go/n8n) or
+   [Google Play](https://callmemcp.com/go/play-n8n))
    and put the 10-digit number from **My Number** into **Configure me**.
    Reaching a real phone needs an active Call Me subscription.
 4. Replace **Do the approved action** with your real step.

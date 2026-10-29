@@ -1,7 +1,7 @@
 {
   "name": "callmemcp",
-  "version": "1.0.0",
-  "description": "Your agent rings your iPhone, reads its text aloud and gets your spoken answer back as text. Texts work too. Hosted MCP server at callmemcp.com, nothing installed locally.",
+  "version": "1.0.1",
+  "description": "Your agent rings your phone (iPhone or Android), reads its text aloud and gets your spoken answer back as text. Texts work too. Hosted MCP server at callmemcp.com, nothing installed locally.",
   "author": {
     "name": "Serdar Oztetik",
     "url": "https://callmemcp.com"

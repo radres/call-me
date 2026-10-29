@@ -6,7 +6,7 @@ from the user.
 
 Know what it is before you set it up: Call Me does no thinking and holds no
 conversation. It is a voice relay. You decide what to ask; Call Me rings the
-user's iPhone, reads your question aloud, and hands their spoken answer back to
+user's phone, reads your question aloud, and hands their spoken answer back to
 you as text. It is for when the user is away from the keyboard: driving, at the
 gym, out for a walk.
 

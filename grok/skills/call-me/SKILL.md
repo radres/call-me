@@ -1,11 +1,11 @@
 ---
 name: call-me
-description: Reach the user on their iPhone through Call Me when you need a decision or an answer and they may be away from the keyboard, or when they asked to be told that a long task finished.
+description: Reach the user on their phone through Call Me when you need a decision or an answer and they may be away from the keyboard, or when they asked to be told that a long task finished.
 ---
 
 # Call Me
 
-The `callmemcp` MCP server reaches the user on their iPhone.
+The `callmemcp` MCP server reaches the user on their phone (iPhone or Android).
 
 ## When to use it
 
@@ -28,6 +28,6 @@ The `callmemcp` MCP server reaches the user on their iPhone.
 ## The number
 
 Every call and text needs the user's 10-digit Call Me number, shown under
-My Number in the Call Me iPhone app. It is not a regular phone number. Ask the
+My Number in the Call Me app. It is not a regular phone number. Ask the
 user for it and never guess one. If they do not have the app yet, call `setup`
-and show its App Store link.
+and show its App Store and Google Play links.
