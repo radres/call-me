@@ -1,6 +1,6 @@
 ---
 name: call-me
-description: Call or text your human's actual iPhone and handle replies from the /call-me app. Use when the user says "call me", "ring me", "phone me if something comes up", "text my phone", asks the agent to stay reachable, wants something read out loud (an update, a summary of the day ahead), or sends an inbound /call-me message or voicemail. The phone rings through CallKit, spoken answers return as transcripts, and channel-enabled hosts deliver later messages directly into the active agent session.
+description: Call or text your human's actual phone (iPhone or Android) and handle replies from the /call-me app. Use when the user says "call me", "ring me", "phone me if something comes up", "text my phone", asks the agent to stay reachable, wants something read out loud (an update, a summary of the day ahead), or sends an inbound /call-me message or voicemail. The phone rings through CallKit, spoken answers return as transcripts, and channel-enabled hosts deliver later messages directly into the active agent session.
 ---
 
 # /call-me — call your human

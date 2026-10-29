@@ -1,6 +1,6 @@
 # /call-me for Claude Code
 
-Lets Claude call and text your iPhone. When Claude hits a question it can't answer alone, it rings your phone and reads the question aloud. What you say back is transcribed and handed to Claude as text. Claude can also send one-way texts, and your text replies come straight back into the session.
+Lets Claude call and text your phone (iPhone or Android). When Claude hits a question it can't answer alone, it rings your phone and reads the question aloud. What you say back is transcribed and handed to Claude as text. Claude can also send one-way texts, and your text replies come straight back into the session.
 
 ## Setup
 

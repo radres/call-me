@@ -39,7 +39,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const api = (process.env.AIPHONE_API || "https://callmemcp.com/aiphone").replace(/\/$/, "");
-const PLUGIN_VERSION = "0.10.1";
+const PLUGIN_VERSION = "0.10.2";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai";
 const toolsCacheFile = join(stateDir(), "tools-claude-code.json");
 const TOOLS_REFRESH_MS = 10 * 60_000;
@@ -142,7 +142,7 @@ const BUILTIN_TOOLS = CHANNEL_ONLY ? [] : [
     },
     {
       name: "text",
-      description: "Send a non-blocking text update to the paired human's iPhone",
+      description: "Send a non-blocking text update to the paired human's phone",
       inputSchema: textSchema("Text to send"),
     },
     {
@@ -595,7 +595,7 @@ function setupText() {
   return [
     "Show these steps to the human as-is:",
     "",
-    '1. Install "/call-me" on your iPhone:',
+    '1. Install "/call-me" on an iPhone, from the App Store:',
     `     ${APP_STORE_URL}`,
     "   or on Android, from Google Play:",
     `     ${PLAY_STORE_URL}`,
