@@ -46,8 +46,9 @@ comes back `completed` with an automated transcript after a few seconds.
 ## 3. Pair the user's phone
 
 1. If `~/.aiphone/config.json` exists, read its `user_number` and skip to step 4.
-2. Otherwise the user needs the Call Me iPhone app:
-   [Download Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165).
+2. Otherwise the user needs the Call Me app:
+   [Download Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165) on an iPhone, or
+   [get it on Google Play](https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai) on Android.
    It shows a 10-digit Call Me number under **My Number**. That number is the
    only credential. Ask the user for it. Never guess one, and never use a number
    from an example.
@@ -62,7 +63,7 @@ comes back `completed` with an automated transcript after a few seconds.
 4. The hosted server cannot read that file. Pass the number as `to` on every
    `call` and `text`.
 
-A Call Me number needs an active subscription, started in the iPhone app. If a
+A Call Me number needs an active subscription, started in the app. If a
 tool answers "this /call-me number is not active", tell the user; you cannot
 fix it from here.
 
@@ -75,7 +76,7 @@ fix it from here.
 | `text` | `body`, `to`, `from_label`. A push notification, no ring |
 | `wait_for_reply` | `session_token`, `cursor`. Returns what the user sent back: texts, voicemail transcripts |
 | `set_thread_title` | `session_token`, `title`. Names this conversation's thread on the phone |
-| `setup` | Returns the App Store link when no number is known |
+| `setup` | Returns the App Store and Google Play links when no number is known |
 
 Reuse the `session_token` from the first result so every call and text from this
 task lands in one thread on the phone. If a call comes back `missed` or

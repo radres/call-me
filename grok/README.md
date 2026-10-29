@@ -1,6 +1,6 @@
 # /call-me for Grok Build
 
-Your agent rings your iPhone, reads its text aloud, and gets your spoken answer
+Your agent rings your phone, reads its text aloud, and gets your spoken answer
 back as text. It can also text you and wait for your reply.
 
 ## Install
@@ -9,8 +9,8 @@ back as text. It can also text you and wait for your reply.
 grok plugin install radres/call-me#grok
 ```
 
-Then install [Call Me](https://apps.apple.com/app/call-me/id6789575165) on your
-iPhone and give Grok the 10-digit number under My Number. Ringing a phone needs
+Then install Call Me from the [App Store](https://apps.apple.com/app/call-me/id6789575165) (iPhone) or
+[Google Play](https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai) (Android) and give Grok the 10-digit number under My Number. Ringing a phone needs
 a Call Me subscription in the app, which starts with a free trial.
 
 ## What it ships

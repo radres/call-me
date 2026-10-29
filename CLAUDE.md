@@ -1,12 +1,13 @@
 # callme — your AI can call you
 
-Your AI agents ring your actual iPhone, read you a question, an update or
+Your AI agents ring your actual phone, iPhone or Android, read you a question, an update or
 your day ahead, and get your spoken reply back as text — or just text you. Works from any AI that
 speaks MCP; nothing to install.
 
 ## 1. Get the app
 
-**[callme on the App Store](https://callmemcp.com/go/readme)**.
+**[callme on the App Store](https://callmemcp.com/go/readme)** for iPhone, or
+**[on Google Play](https://callmemcp.com/go/play-readme)** for Android.
 No registration, no email. Open it, tap *Agree & Continue*, and it shows your
 personal **callme number**: 10 digits, and all an agent needs to reach you.
 
@@ -87,7 +88,7 @@ the number or use that client's explicit pairing flow; never guess it.
 
 | Tool | What it does |
 |---|---|
-| `call` | Rings your iPhone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text. Holds ~30s, then hands the AI a `call_id` to poll |
+| `call` | Rings your phone, reads your text aloud (a question, an update, a summary of the day ahead), returns your spoken reply as text. Holds ~30s, then hands the AI a `call_id` to poll |
 | `poll_result` | Finishes a call that was still ringing |
 | `text` | Push-notification message, no ring |
 | `wait_for_reply` | Delivers your replies and voicemails back to the AI |
@@ -190,7 +191,8 @@ dsh plugin --profile web add github:radres/dsh-plugin-call-me
 ## How it works
 
 - `call` creates a VoIP call (LiveKit WebRTC — no real telephony); your
-  iPhone rings through CallKit like a real call, TTS reads your text,
+  phone rings like a real call (CallKit on iPhone, a full-screen incoming
+  call on Android), TTS reads your text,
   your spoken reply is transcribed and returned to the agent.
 - Your number is a bearer capability: anyone who knows it can reach you,
   nobody who doesn't can. Rate limits and per-number caps apply server-side;
