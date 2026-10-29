@@ -4,7 +4,7 @@ Lets Claude call and text your iPhone. When Claude hits a question it can't answ
 
 ## Setup
 
-1. Install the [/call-me iOS app](https://apps.apple.com/app/call-me/id6789575165) and open it. It shows your 10-digit number.
+1. Install /call-me from the [App Store](https://apps.apple.com/app/call-me/id6789575165) or [Google Play](https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai) and open it. It shows your 10-digit number.
 2. Install the plugin:
 
    ```

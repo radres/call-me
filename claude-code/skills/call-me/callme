@@ -71,6 +71,7 @@ require_number() {
 callme: no phone paired yet.
 
 Download Call Me from the App Store: https://apps.apple.com/app/call-me/id6789575165
+On Android, get it on Google Play: https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai
 
 If they don't have the app yet, show them this — camera at the code:
 EOF
@@ -359,6 +360,9 @@ EOF
   echo
   do_qr "$@"
   cat <<EOF
+
+   On Android, get it on Google Play instead:
+   https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai
 
 2. Open My Number in the app to find the 10-digit number.
 3. They read the number back to you.

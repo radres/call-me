@@ -7,14 +7,15 @@ description: Call or text your human's actual iPhone and handle replies from the
 
 Use english always, test to speech always expects english
 
-Your human's iPhone runs the /call-me app. It gave them a **user number**
+Your human's iPhone or Android phone runs the /call-me app. It gave them a **user number**
 (10 digits, e.g. `584-158-6160`) — that's all you need to ring their actual
 phone and get a spoken answer.
 
 ## First setup and saved pairing
 
 When pairing is missing, always show a clickable link:
-[Download Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165).
+[Download Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165)
+on an iPhone, or [get it on Google Play](https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai) on Android.
 Tell the user to open **My Number** in the app. Never show only the app name or
 substitute the demo number.
 
@@ -118,7 +119,8 @@ phone; a code to point the camera at beats retyping a URL. Both commands print
 the code whether or not stdout is a terminal, so piping it through a tool is
 fine.
 
-1. They install [Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165).
+1. They install [Call Me from the App Store](https://apps.apple.com/app/call-me/id6789575165)
+   (iPhone) or [Google Play](https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai) (Android).
 2. They open *My Number* in the app to find their 10-digit number.
 3. They read the number back to you.
 4. Tell them their phone is about to ring, then run `callme pair <number>` (or the

@@ -39,7 +39,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const api = (process.env.AIPHONE_API || "https://callmemcp.com/aiphone").replace(/\/$/, "");
-const PLUGIN_VERSION = "0.10.0";
+const PLUGIN_VERSION = "0.10.1";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai";
 const toolsCacheFile = join(stateDir(), "tools-claude-code.json");
 const TOOLS_REFRESH_MS = 10 * 60_000;
 const LOCAL_ONLY_TOOLS = new Set(["wait_for_answer", "setup", "pair", "identity"]);
@@ -596,6 +597,8 @@ function setupText() {
     "",
     '1. Install "/call-me" on your iPhone:',
     `     ${APP_STORE_URL}`,
+    "   or on Android, from Google Play:",
+    `     ${PLAY_STORE_URL}`,
     "2. Open it and tap Agree & Continue — the app shows your 10-digit number.",
     "3. Read that number back to me.",
     "",
