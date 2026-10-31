@@ -6,7 +6,7 @@
   "description": "Call, text, and receive replies from the /call-me app (iPhone or Android). Pair once (any session) and every Claude on this machine reaches the same phone.",
   "author": {
     "name": "Serdar Oztetik",
-    "email": "serdaroztetik@gmail.com"
+    "email": "info@callmemcp.com"
   },
   "homepage": "https://callmemcp.com/",
   "repository": "https://github.com/radres/call-me",

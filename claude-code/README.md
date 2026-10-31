@@ -30,7 +30,7 @@ Questions and texts go through the /call-me server to your phone, and your spoke
 
 ## Support
 
-serdaroztetik@gmail.com · [github.com/radres/call-me](https://github.com/radres/call-me)
+info@callmemcp.com · [github.com/radres/call-me](https://github.com/radres/call-me)
 
 ## License
 
