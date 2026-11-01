@@ -194,6 +194,8 @@ dsh plugin --profile web add github:radres/dsh-plugin-call-me
   phone rings like a real call (CallKit on iPhone, a full-screen incoming
   call on Android), TTS reads your text,
   your spoken reply is transcribed and returned to the agent.
-- Your number is a bearer capability: anyone who knows it can reach you,
-  nobody who doesn't can. Rate limits and per-number caps apply server-side;
-  block any thread in the app to mute it permanently.
+- Your number works like a phone number: anyone who has it can reach you,
+  nobody who doesn't can. It cannot act for you: reading your history,
+  deleting the number or moving it needs the app on your phone. Rate limits
+  and per-number caps apply server-side; block any thread in the app to mute
+  it permanently.
