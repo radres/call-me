@@ -48,7 +48,7 @@ curl -sS https://callmemcp.com/ring \
 ```
 
 `POST /ring` blocks until the spoken answer returns. It needs no token, plugin,
-or registration; the 10-digit recipient number is the bearer capability. Use
+or registration; the 10-digit recipient number is the address. Use
 `POST /text` with `body` instead of `text` for a non-blocking notification.
 
 **You must call or text BEFORE ending a turn with an open question** — once
