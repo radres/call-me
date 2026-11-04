@@ -44,6 +44,7 @@ import {
   answerGraceSeconds,
   armWaiter,
   clearWaiter,
+  hookSessionKey,
   hookStampPath,
   isValidNumber,
   modelArmed,
@@ -100,7 +101,7 @@ async function main() {
   // Loop guard: we already blocked once for this stop, the model has been told.
   if (input.stop_hook_active === true) return;
 
-  const sessionId = String(input.session_id || "").replace(/[^A-Za-z0-9-]/g, "");
+  const sessionId = hookSessionKey(input.session_id);
   const cwd = typeof input.cwd === "string" ? input.cwd : "";
 
   // Scope. By default only sessions that actually opted into /call-me get a nudge:

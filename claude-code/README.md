@@ -24,7 +24,7 @@ Lets Claude call and text your phone (iPhone or Android). When Claude hits a que
 
 ## Listening
 
-Every session that has texted or called you gets a thread on your phone. From 0.11.0 the plugin also listens on that thread: while the session is idle, a background hook waits for a text or a voice message from you and wakes Claude with it. The app shows a call button on the thread while it is listening. Already have the plugin? Run `claude plugin update call-me@call-me` and restart Claude Code. Turn it off with `CALLME_NO_LISTEN=1` or `"listen": false` in `~/.aiphone/config.json`.
+Every session that has texted or called you gets a thread on your phone. From 0.11.0 the plugin also listens on that thread: while the session is idle, a background hook waits for a text or a voice message from you and wakes Claude with it. The app shows a call button on the thread while it is listening. Already have the plugin? Run `claude plugin update call-me@call-me` and restart Claude Code. Turn it off with `CALLME_NO_LISTEN=1` or `"listen": false` in `~/.aiphone/config.json`. From 0.11.1 it also listens in sessions started by Remote Control.
 
 The hosted MCP endpoint is `https://callmemcp.com/mcp` if you prefer a connector without the plugin: `claude mcp add --transport http call-me https://callmemcp.com/mcp`. A connector can only hear you while Claude is working and waiting on `wait_for_reply`.
 

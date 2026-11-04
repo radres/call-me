@@ -39,7 +39,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const api = (process.env.AIPHONE_API || "https://callmemcp.com/aiphone").replace(/\/$/, "");
-const PLUGIN_VERSION = "0.11.0";
+const PLUGIN_VERSION = "0.11.1";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai";
 const toolsCacheFile = join(stateDir(), "tools-claude-code.json");
 const TOOLS_REFRESH_MS = 10 * 60_000;
@@ -831,7 +831,9 @@ async function restoreOrCreateSession() {
 
 function saveStateObject(state) {
   try {
-    writeJsonPrivate(stateFile, { api, userNumber: pairedNumber(), ...state });
+    // claude_pid lets a hook find this file when its session id is not ours
+    // (hookSessionKey in lib/callme-config.mjs).
+    writeJsonPrivate(stateFile, { api, userNumber: pairedNumber(), ...state, claude_pid: process.ppid });
   } catch (error) {
     console.error(`/call-me state save failed: ${error.message}`);
   }

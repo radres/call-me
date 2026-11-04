@@ -18,6 +18,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -54,6 +55,72 @@ export function stateFileFor({ projectDir } = {}) {
   if (claudeSessionId) return join(stateDir(), `claude-session-${claudeSessionId}.json`);
   const dir = projectDir || process.env.CLAUDE_PROJECT_DIR || process.cwd();
   return join(stateDir(), `claude-channel-${dir.replace(/[^A-Za-z0-9]+/g, "-")}.json`);
+}
+
+/**
+ * The session key a HOOK should use, given its payload's session_id.
+ *
+ * Usually that id is the key. A session that Remote Control spawned
+ * (`claude --print --resume=<cse_ URL>`) is the exception: its MCP servers get
+ * one CLAUDE_CODE_SESSION_ID and its hooks another (2026-11-04, Claude Code
+ * 2.1.302). The MCP server then saves the thread as claude-session-<A>.json and
+ * the hook asks for <B>, finds nothing, and the listener never starts. Both run
+ * under the same claude process, though, and the MCP server records that pid in
+ * the thread file (claude_pid), so a hook whose own id has no file looks for the
+ * file of its claude and uses that file's key.
+ */
+export function hookSessionKey(sessionId) {
+  const id = String(sessionId || "").replace(/[^A-Za-z0-9-]/g, "");
+  if (id && existsQuiet(join(stateDir(), `claude-session-${id}.json`))) return id;
+  return keyForClaudePids(hookClaudePids()) || id;
+}
+
+/** Hooks run as `sh -c node …` under claude: the claude is the parent or the grandparent. */
+function hookClaudePids() {
+  const pids = [process.ppid];
+  try {
+    const grand = Number(
+      execFileSync("ps", ["-o", "ppid=", "-p", String(process.ppid)], {
+        encoding: "utf8",
+        timeout: 2_000,
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim(),
+    );
+    if (grand > 1) pids.push(grand);
+  } catch {}
+  return pids.filter((pid) => pid > 1);
+}
+
+function keyForClaudePids(pids) {
+  if (!pids.length) return "";
+  let best = { key: "", mtime: 0 };
+  let names = [];
+  try {
+    names = readdirSync(stateDir());
+  } catch {
+    return "";
+  }
+  for (const name of names) {
+    const m = /^claude-session-([A-Za-z0-9-]+)\.json$/.exec(name);
+    if (!m) continue;
+    const file = join(stateDir(), name);
+    if (!pids.includes(readJson(file)?.claude_pid)) continue;
+    let mtime = 0;
+    try {
+      mtime = statSync(file).mtimeMs;
+    } catch {}
+    if (mtime >= best.mtime) best = { key: m[1], mtime };
+  }
+  return best.key;
+}
+
+function existsQuiet(file) {
+  try {
+    statSync(file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

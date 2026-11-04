@@ -38,6 +38,7 @@ import {
   channelClaimed,
   clearWaiter,
   forgetCachedNumber,
+  hookSessionKey,
   inboundCursorPath,
   isValidNumber,
   listenerLockPath,
@@ -71,7 +72,8 @@ async function main() {
   if (process.env.CALLME_NO_LISTEN === "1" || readConfig()?.listen === false) return;
 
   const projectDir = typeof input.cwd === "string" ? input.cwd : undefined;
-  const key = stateKey({ sessionId: input.session_id, projectDir });
+  const sessionId = hookSessionKey(input.session_id);
+  const key = stateKey({ sessionId, projectDir });
   const lock = listenerLockPath(key);
 
   if (input.hook_event_name === "SessionEnd") {
@@ -79,7 +81,7 @@ async function main() {
     return;
   }
 
-  const sessionFile = sessionFileFor(input.session_id, projectDir);
+  const sessionFile = sessionFileFor(sessionId, projectDir);
   const saved = readJson(sessionFile);
   const token = saved?.session?.session_token;
   if (!token) return;
