@@ -1,5 +1,5 @@
 {
-  "description": "When a turn ends on a question the human has not answered, start a grace period — and if it closes with no answer, wake Claude to text or call them. The hooks never dial; the model does.",
+  "description": "Wakes Claude when the paired human texts or leaves a voice message from the /call-me app (a background listener that runs while the session is idle), and when a turn ends on a question the human has not answered, starts a grace period that can wake Claude to text or call them. The hooks never dial; the model does.",
   "hooks": {
     "Stop": [
       {
@@ -7,6 +7,12 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-reachability.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/listener/listen.mjs\"",
+            "asyncRewake": true,
+            "timeout": 86400
           }
         ]
       }
@@ -27,6 +33,22 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/answer-seen.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/listener/listen.mjs\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/listener/listen.mjs\"",
+            "asyncRewake": true,
+            "timeout": 86400
           }
         ]
       }

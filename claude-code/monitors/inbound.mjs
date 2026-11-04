@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {
+  beatMonitor,
   channelClaimed,
   clearWaiter,
   currentUserNumber,
@@ -57,6 +58,11 @@ process.on("SIGINT", () => { stopping = true; });
 process.on("SIGTERM", () => { stopping = true; });
 
 await waitUntilPaired();
+// Tells the idle listener (listener/listen.mjs) that this monitor is delivering,
+// so the two never both put a message in front of the model. On a timer, not per
+// poll: most of this process's life is spent inside a 50 s long poll.
+beatMonitor(stateKey);
+setInterval(() => beatMonitor(stateKey), 10_000).unref();
 let session = await waitForSharedSessionWithRetry();
 let cursor = restoreCursor(session.session_token);
 

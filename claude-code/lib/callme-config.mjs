@@ -277,6 +277,33 @@ export function releaseChannel(stateKey) {
   }
 }
 
+// --- the idle listener (listener/listen.mjs) ---------------------------------
+//
+// A background Stop/SessionStart hook that long-polls this session's events
+// while the session sits idle, and wakes it when the human texts or calls. It
+// is the third reader of the same events, so it steps aside for the other two:
+// the channel pump says so with its claim above, the inbox monitor with this
+// heartbeat. Same reasoning as the claim: a heartbeat goes stale by itself when
+// the monitor dies, a flag would strand the session with nobody listening.
+
+/** The inbox monitor's "I am delivering this session's events" heartbeat. */
+export function monitorBeatPath(stateKey) {
+  return join(stateDir(), `claude-monbeat-${stateKey}.json`);
+}
+
+export function monitorAlive(stateKey, maxAgeS = 30) {
+  return stampFresh(monitorBeatPath(stateKey), maxAgeS);
+}
+
+export function beatMonitor(stateKey) {
+  return touchStamp(monitorBeatPath(stateKey));
+}
+
+/** Which listener process owns this session: `{pid, started_at}`. */
+export function listenerLockPath(stateKey) {
+  return join(stateDir(), `claude-listen-${stateKey}.json`);
+}
+
 /**
  * Where the inbound cursor lives. Shared by BOTH transports on purpose: a
  * session that falls back from channel push to the monitor (or the reverse)
@@ -411,7 +438,7 @@ export function pruneStaleState({ days = 30 } = {}) {
   let removed = 0;
   try {
     for (const name of readdirSync(stateDir())) {
-      if (!/^claude-(session|monitor|channel|chanclaim|reach|await|waiter)-.*\.json$/.test(name)) continue;
+      if (!/^claude-(session|monitor|channel|chanclaim|reach|await|waiter|monbeat|listen)-.*\.json$/.test(name)) continue;
       const file = join(stateDir(), name);
       try {
         if (statSync(file).mtimeMs < cutoff) {

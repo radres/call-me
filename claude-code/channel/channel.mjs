@@ -39,7 +39,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const api = (process.env.AIPHONE_API || "https://callmemcp.com/aiphone").replace(/\/$/, "");
-const PLUGIN_VERSION = "0.10.2";
+const PLUGIN_VERSION = "0.11.0";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.serdaroztetik.callmeai";
 const toolsCacheFile = join(stateDir(), "tools-claude-code.json");
 const TOOLS_REFRESH_MS = 10 * 60_000;
