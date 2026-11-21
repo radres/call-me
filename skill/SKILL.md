@@ -242,14 +242,16 @@ only listened.
 
 ## Conversations — keep the line open
 
-In the Claude Code plugin and over MCP the line stays open after the first
-answer by default; pass `keep_open: false` for a one-shot call. Over REST and
-the `callme` CLI a call still hangs up after one answer unless you ask:
+Every call is a conversation: the line stays open after their answer and you
+decide when it ends. Over plain REST a call hangs up after one answer unless
+you pass `keep_open: true`.
 
 - Claude Code plugin / MCP: `call`. The result carries `call_id` and
   `open: true`. Speak the next line with `say` (`call_id`, `text`), which
   returns their next answer. End with `hang_up` (`call_id`, optional goodbye
   `text`).
+- `callme` CLI: `callme call "text"` prints `ANSWER:` and `LINE OPEN (call N)`.
+  Answer them with `callme say N "text"`, end with `callme hangup N ["Bye."]`.
 - REST: `POST /calls` with `"keep_open": true`, then
   `POST /calls/{id}/say {session_token, text}` and
   `POST /calls/{id}/hangup {session_token, text}`.
@@ -260,6 +262,15 @@ answer as `said_while_waiting`. `open: false` means the call ended (they hung
 up, 120 s without a line from you, or the 15-minute cap). Pass `language`
 ("tr") on `call` or `say` when you switch languages. Always `hang_up` when you
 are done, or the line idles until the timer drops it.
+
+Pass `voice` on `call`, `say`, `play_audio` or `/ring` to choose who speaks.
+Female voices come first: `bella` (the default), `sarah`, `jessica`, `matilda`,
+`laura`, `alice` and `lily` (both British). Then `river` (neutral). Then male:
+`roger`, `eric`, `chris`, `brian`, `will`, `liam`, `bill`, `george` and
+`daniel` (both British), and `charlie` (Australian). You can also pass `"female"`
+or `"male"`. Your choice sticks for this session's later calls. If you never
+pick one, the call uses the voice the person chose in their app. `GET /voices`
+lists them all.
 
 ### If you text and keep working, park a check-back
 

@@ -7,6 +7,7 @@ API="${AIPHONE_API:-https://callmemcp.com/aiphone}"
 CONF_DIR="${AIPHONE_HOME:-${AIPHONE_STATE_DIR:-$HOME/.aiphone}}"
 CONF="$CONF_DIR/session.json"
 USER_CONF="$CONF_DIR/config.json"
+CLIENT="callme-cli/1"
 
 usage() {
   cat <<'EOF'
@@ -23,7 +24,11 @@ callme — your AI can call its human
   callme channel [on|off|status]  deliver inbound messages by MCP channel push
                                   instead of the inbox monitor (needs --channels)
   callme call "text"             RING the phone, speak the text, BLOCK until the
-                                  spoken answer comes back (prints transcript)
+                                  spoken answer comes back (prints transcript).
+                                  The line stays open: the output names the call id
+  callme say <id> "text"         speak the next line on an open call, BLOCK for
+                                  their answer
+  callme hangup <id> ["bye"]     end the call, optionally saying a goodbye first
   callme text "text"             send a text (push notification on the phone)
   callme listen                  long-poll; EXITS when an event arrives (voicemail,
                                   text, missed call). Run with run_in_background.
@@ -453,21 +458,65 @@ do_call() {
   local timeout="${AIPHONE_TIMEOUT:-300}"
   local body
   body=$(jq -cn --arg t "$(conf session_token)" --arg to "$to" --arg x "$text" \
-    --argjson w "$timeout" '{session_token:$t, to:$to, text:$x, timeout_s:$w}')
+    --argjson w "$timeout" '{session_token:$t, to:$to, text:$x, timeout_s:$w, keep_open:true}')
   # +30s curl budget over the server-side timeout
   local resp
   resp=$(curl -sS --max-time "$((timeout + 30))" -X POST "$API/calls" \
-    -H 'content-type: application/json' -d "$body")
-  local status
+    -H 'content-type: application/json' -H "x-callme-client: $CLIENT" -d "$body")
+  print_answer "$resp"
+}
+
+print_answer() {
+  local resp="$1" status id
   status=$(echo "$resp" | jq -r '.status // "error"')
+  id=$(echo "$resp" | jq -r '.call_id // ""')
   case "$status" in
-    completed)
-      echo "ANSWER: $(echo "$resp" | jq -r .transcript)";;
+    ringing|in_call)
+      echo "NO ANSWER YET (call $id, $status). Run: callme say $id \"...\" or callme hangup $id" >&2; exit 3;;
+    completed|ended|hanging_up)
+      echo "ANSWER: $(echo "$resp" | jq -r '.transcript // ""')"
+      local early
+      early=$(echo "$resp" | jq -r '.said_while_waiting // [] | if type=="array" then join(" ") else . end')
+      [ -n "$early" ] && echo "SAID WHILE WAITING: $early"
+      if [ "$(echo "$resp" | jq -r '.open // false')" = true ]; then
+        echo "LINE OPEN (call $id): they are on hold. Reply with: callme say $id \"...\""
+        echo "  End it with: callme hangup $id [\"goodbye line\"]. You decide; idle 120s drops it."
+      else
+        echo "CALL ENDED"
+      fi;;
     missed|declined|timeout)
       echo "NO ANSWER ($status) — consider 'callme text' instead" >&2; exit 3;;
     *)
       echo "call failed: $resp" >&2; exit 4;;
   esac
+}
+
+do_say() {
+  need_jq
+  local id="${1:-}" text="${2:-}"
+  [[ "$id" =~ ^[0-9]+$ ]] && [ -n "$text" ] || usage
+  ensure_session
+  local timeout="${AIPHONE_TIMEOUT:-300}" body resp
+  body=$(jq -cn --arg t "$(conf session_token)" --arg x "$text" --argjson w "$timeout" \
+    '{session_token:$t, text:$x, timeout_s:$w}')
+  resp=$(curl -sS --max-time "$((timeout + 30))" -X POST "$API/calls/$id/say" \
+    -H 'content-type: application/json' -H "x-callme-client: $CLIENT" -d "$body")
+  print_answer "$resp"
+}
+
+do_hangup() {
+  need_jq
+  local id="${1:-}" text="${2:-}"
+  [[ "$id" =~ ^[0-9]+$ ]] || usage
+  ensure_session
+  local body resp
+  body=$(jq -cn --arg t "$(conf session_token)" --arg x "$text" '{session_token:$t, text:$x}')
+  resp=$(curl -sS --max-time 60 -X POST "$API/calls/$id/hangup" \
+    -H 'content-type: application/json' -H "x-callme-client: $CLIENT" -d "$body")
+  if echo "$resp" | jq -e '.detail' >/dev/null 2>&1; then
+    echo "hangup failed: $resp" >&2; exit 4
+  fi
+  echo "HUNG UP (call $id)"
 }
 
 do_text() {
@@ -554,6 +603,8 @@ case "$cmd" in
   number)   do_number "${1:-}";;
   register) register "${1:-AI session}";;
   call)     [ $# -ge 1 ] || usage; do_call "$@";;
+  say)      [ $# -ge 2 ] || usage; do_say "$@";;
+  hangup)   [ $# -ge 1 ] || usage; do_hangup "$@";;
   text)     [ $# -ge 1 ] || usage; do_text "$@";;
   listen)   do_listen;;
   events)   do_events;;
