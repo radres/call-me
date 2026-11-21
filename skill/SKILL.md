@@ -242,9 +242,10 @@ only listened.
 
 ## Conversations — keep the line open
 
-Every call is a conversation: the line stays open after their answer and you
-decide when it ends. Over plain REST a call hangs up after one answer unless
-you pass `keep_open: true`.
+Every call is a conversation, from every client: the line stays open after
+their answer and you decide when it ends. Calling the same number again while
+the line is open speaks your text as the next line on that call. If you go
+quiet, the line says goodbye and drops by itself (about two minutes).
 
 - Claude Code plugin / MCP: `call`. The result carries `call_id` and
   `open: true`. Speak the next line with `say` (`call_id`, `text`), which
@@ -252,7 +253,7 @@ you pass `keep_open: true`.
   `text`).
 - `callme` CLI: `callme call "text"` prints `ANSWER:` and `LINE OPEN (call N)`.
   Answer them with `callme say N "text"`, end with `callme hangup N ["Bye."]`.
-- REST: `POST /calls` with `"keep_open": true`, then
+- REST: `POST /calls`, then
   `POST /calls/{id}/say {session_token, text}` and
   `POST /calls/{id}/hangup {session_token, text}`.
 
