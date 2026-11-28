@@ -1,7 +1,7 @@
 {
   "name": "call-me",
   "displayName": "/call-me",
-  "description": "Your agent rings your phone, reads its question aloud and gets your spoken answer back as text. It can also text you when a task is done or blocked.",
+  "description": "Let your agent call their human. It rings your phone, reads its question aloud and gets your spoken answer back as text, or texts you when done or blocked.",
   "version": "1.0.0",
   "logo": "assets/logo.png",
   "suggestedPrompts": [
