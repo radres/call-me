@@ -1,0 +1,20 @@
+{
+  "name": "call-me",
+  "displayName": "/call-me",
+  "description": "Your agent rings your phone, reads its question aloud and gets your spoken answer back as text. It can also text you when a task is done or blocked.",
+  "version": "1.0.0",
+  "logo": "assets/logo.png",
+  "suggestedPrompts": [
+    "Try /call-me on the demo line 5550001234: call it and ask whether to ship.",
+    "Text my phone when this task is done, and call me if you get blocked on a decision.",
+    "Keep working while I'm away and call me before anything you can't undo."
+  ],
+  "author": {
+    "name": "Serdar Oztetik",
+    "url": "https://callmemcp.com"
+  },
+  "homepage": "https://callmemcp.com",
+  "repository": "https://github.com/radres/call-me",
+  "license": "MIT",
+  "keywords": ["phone", "call", "voice", "text", "notifications", "human-in-the-loop", "approval", "iphone", "android"]
+}
