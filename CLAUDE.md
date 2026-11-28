@@ -1,4 +1,4 @@
-# callme — your AI can call you
+# /call-me (CallMeMCP): let your agent call their human
 
 Your AI agents ring your actual phone, iPhone or Android, read you a question, an update or
 your day ahead, and get your spoken reply back as text — or just text you. Works from any AI that

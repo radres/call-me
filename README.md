@@ -4,7 +4,7 @@
 
 <div align="center">
 
-# callme — your AI can call you
+# /call-me (CallMeMCP): let your agent call their human
 
 </div>
 
@@ -63,7 +63,19 @@ claude mcp add --transport http call-me https://callmemcp.com/mcp
 }
 ```
 
-**Codex CLI — use the local paired MCP server**
+**Codex** (CLI, IDE extension and the ChatGPT desktop app share this setup)
+
+```bash
+codex mcp add call-me --url https://callmemcp.com/mcp
+```
+
+Then add `default_tools_approval_mode = "approve"` under `[mcp_servers.call-me]` in
+`~/.codex/config.toml`, or Codex waits for you at the keyboard before it may call.
+Tell Codex your number once (or put it in `~/.codex/AGENTS.md`).
+
+To keep the number out of the conversation, use the local paired MCP server
+instead. It reads `~/.aiphone/config.json` for every call and text; its
+`identity` tool shows the paired phone:
 
 ```bash
 cd /absolute/path/to/call-me
@@ -72,11 +84,8 @@ codex mcp add callme -- node "$PWD/codex/mcp.mjs"
 codex mcp list
 ```
 
-The local `callme` MCP server reads `~/.aiphone/config.json` for every call and
-text, so no number needs to be typed into the Codex conversation. Use its
-`identity` tool to verify the paired phone.
-
-**Gemini CLI**
+**Gemini CLI** (Google replaced it with Antigravity CLI for most users in June 2026;
+see Antigravity below)
 
 ```bash
 gemini extensions install https://github.com/radres/call-me
