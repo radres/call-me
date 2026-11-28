@@ -1,0 +1,106 @@
+{
+  "name": "call-me",
+  "displayName": "CallMeMCP: phone calls from your AI agent",
+  "description": "Let your agent call their human. Registers the /call-me MCP server: your AI agent rings your phone (iPhone or Android), reads its question aloud and gets your spoken answer back, or texts you when it is done or blocked.",
+  "version": "0.1.0",
+  "publisher": "callmemcp",
+  "license": "MIT",
+  "icon": "icon.png",
+  "homepage": "https://callmemcp.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/radres/call-me.git",
+    "directory": "vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/radres/call-me/issues",
+    "email": "info@callmemcp.com"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "mcp",
+    "mcp server",
+    "phone call",
+    "notifications",
+    "agent",
+    "human in the loop",
+    "voice",
+    "copilot",
+    "cursor",
+    "kiro"
+  ],
+  "galleryBanner": {
+    "color": "#2F6FD6",
+    "theme": "dark"
+  },
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "com.callmemcp/call-me",
+        "label": "/call-me"
+      }
+    ],
+    "commands": [
+      {
+        "command": "callme.addToEditor",
+        "title": "Add MCP server to this editor",
+        "category": "/call-me"
+      },
+      {
+        "command": "callme.sendTestText",
+        "title": "Send a test text to my phone",
+        "category": "/call-me"
+      },
+      {
+        "command": "callme.getApp",
+        "title": "Get the phone app",
+        "category": "/call-me"
+      }
+    ],
+    "configuration": {
+      "title": "/call-me",
+      "properties": {
+        "callme.number": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(\\d{10})?$",
+          "patternErrorMessage": "Your /call-me number has 10 digits.",
+          "markdownDescription": "Your 10-digit /call-me number, from **My Number** in the app. Used only by **/call-me: Send a test text to my phone**. VS Code's MCP API has no way to hand it to the server, so your agent still asks for it once."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "test": "npm run compile && node --test out/test/unit.test.js",
+    "test:editor": "npm run compile && node out/test/runEditorTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "~1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "typescript": "^5.8.0"
+  }
+}
